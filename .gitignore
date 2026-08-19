@@ -36,3 +36,7 @@ sysinfo.txt
 # OS generated
 .DS_Store
 Thumbs.db
+
+# Local learning documentation
+Docs/
+
