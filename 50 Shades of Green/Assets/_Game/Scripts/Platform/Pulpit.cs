@@ -52,12 +52,21 @@ public class Pulpit : MonoBehaviour
         }
     }
 
+    private void OnCollisionEnter(Collision collision)
+    {
+        CheckLanding(collision.gameObject);
+    }
+
     private void OnTriggerEnter(Collider other)
+    {
+        CheckLanding(other.gameObject);
+    }
+
+    private void CheckLanding(GameObject target)
     {
         if (hasBeenSteppedOn) return;
 
-        // Check if Doofus walked onto this platform
-        if (other.GetComponent<DoofusController>() != null || other.CompareTag("Player"))
+        if (target.GetComponent<DoofusController>() != null || target.CompareTag("Player"))
         {
             hasBeenSteppedOn = true;
             GameEvents.TriggerPulpitLanded();

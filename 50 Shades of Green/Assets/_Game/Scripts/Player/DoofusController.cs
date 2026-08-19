@@ -1,4 +1,7 @@
 using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 // Controls Doofus character movement and checks for edge falls
 [RequireComponent(typeof(Rigidbody))]
@@ -38,11 +41,7 @@ public class DoofusController : MonoBehaviour
             return;
         }
 
-        // Standard keyboard input (WASD and Arrow keys)
-        float horizontal = Input.GetAxisRaw("Horizontal");
-        float vertical = Input.GetAxisRaw("Vertical");
-
-        inputVector = new Vector2(horizontal, vertical).normalized;
+        ReadInput();
 
         // Check if Doofus fell off the platform edge into the void
         if (!hasFallen && transform.position.y < fallThreshold)
@@ -52,13 +51,37 @@ public class DoofusController : MonoBehaviour
         }
     }
 
+    private void ReadInput()
+    {
+        float h = 0f;
+        float v = 0f;
+
+#if ENABLE_INPUT_SYSTEM
+        // New Input System (Unity 6 standard)
+        var keyboard = Keyboard.current;
+        if (keyboard != null)
+        {
+            if (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed) v += 1f;
+            if (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed) v -= 1f;
+            if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed) h -= 1f;
+            if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed) h += 1f;
+        }
+#else
+        // Legacy input fallback
+        h = Input.GetAxisRaw("Horizontal");
+        v = Input.GetAxisRaw("Vertical");
+#endif
+
+        inputVector = new Vector2(h, v).normalized;
+    }
+
     private void FixedUpdate()
     {
         if (GameManager.Instance != null && !GameManager.Instance.IsPlaying) return;
 
         float speed = GameConfig.Instance != null ? GameConfig.Instance.PlayerSpeed : 3f;
 
-        // Move horizontally and vertically along the X-Z plane
+        // Move horizontally and vertically along the X-Z plane while preserving vertical gravity velocity
         Vector3 targetVelocity = new Vector3(inputVector.x * speed, rb.linearVelocity.y, inputVector.y * speed);
         rb.linearVelocity = targetVelocity;
     }
