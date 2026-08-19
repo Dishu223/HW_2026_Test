@@ -1,78 +1,66 @@
-﻿# Doofus Adventure 🎮
+# ? Doofus Adventure
 
-A charming, fast-paced 3D arcade platformer built in **Unity 6 (6000.5.7f1)**.
-
-Guide **Doofus**, a lovable snowman-like adventurer, across disappearing 9x9 green metallic platforms called **Pulpits**. The goal is simple yet challenging: survive and step across at least **50 Pulpits** without falling into the void!
+A vibrant, fast-paced 3D arcade platformer built in **Unity 6**. Guide **Doofus**�a quirky, animated snowman�across floating green platforms called **Pulpits** before they crumble beneath his feet!
 
 ---
 
-## 🌟 Game Overview
+## ?? Story & Objective
 
-- **Dynamic Platform Lifecycles**: Each Pulpit has an internal countdown timer. As time ticks down, the platform shifts color from green to warning yellow and pulsing red before shattering into pieces!
-- **Adjacent Platform Spawning**: Only up to 2 Pulpits exist at any given time. A new pulpit spawns adjacent to the active one based on the configured spawn interval.
-- **Configurable Gameplay**: Player speed, spawn rates, and platform lifespans are dynamically loaded from a configuration file (`game_data.json`).
-- **Character Personality**: Procedural physics-based character movement with natural body lean, bouncy head movement, and expressive eyes that react dynamically to the remaining platform timer.
-- **Character Customization Lobby**: Customize Doofus with custom colors for body, head, and eyes before diving into the run.
-- **Rewind Time Mechanic**: Accidentally fell off the edge? A slow-motion rewind ability gives you another chance to reverse back in time and save your run (limited uses per game).
-- **Juicy Polish**: Visual particle bursts on movement and landings, dynamic camera follow with screen shake, escalating audio feedback with musical note progressions, and ambient lighting that evolves as you reach score milestones.
+Doofus loves exploring floating platforms, but there is a catch: **Pulpits don't last long and disappear within seconds!**
+
+Your mission is simple:
+- Guide Doofus across at least **50 Pulpits** to complete the challenge.
+- Stay sharp: Pulpits are constantly ticking down and disintegrating.
+- Fall into the void, and your adventure ends (unless you have a **Time Rewind** ready!).
 
 ---
 
-## 🕹️ Controls
+## ?? Key Features
+
+- **Living Character Animation**: Doofus leans, wobbles, and reacts dynamically to platform danger with changing eye expressions.
+- **Dynamic Platform System**: Platform speed, lifetime, and spawn rates are driven by a configurable data file (`game_data.json`).
+- **Shatter Effects**: When a pulpit timer reaches zero, it breaks into physical fragments and collapses.
+- **Time Rewind Mechanic**: If Doofus slips off an edge, activate a slow-motion time rewind to pull yourself back onto safety!
+- **Lobby & Customization**: Personalize Doofus with custom colors for his body, head, and eyes before hopping into the run.
+- **Audio & Haptic Feedback**: Procedural sound effects, dynamic music, and celebratory milestones at 10, 25, and 50 points.
+
+---
+
+## ??? Controls
 
 | Action | Key / Input |
-|---|---|
+| :--- | :--- |
 | **Move** | `W`, `A`, `S`, `D` or `Arrow Keys` |
-| **Start / Confirm** | `Space` or `Enter` |
-| **Quick Restart** | `R` |
+| **Start Game / Confirm** | `Space` or `Enter` |
+| **Restart Run** | `R` |
 
 ---
 
-## 🏗️ Architecture & Technical Design
+## ??? Tech Stack & Architecture
 
-The project is built with clean, modular, and decoupled C# systems adhering to modern Unity best practices:
-
-- **Decoupled Event Bus (`GameEvents.cs`)**: Systems communicate via static C# events, keeping gameplay, audio, UI, and VFX independently testable and maintainable.
-- **Robust Configuration Loader (`GameConfig.cs`)**: Handles JSON parsing with comprehensive fallback defaults to ensure zero crashes even if files are missing or malformed.
-- **State Machine Management (`GameManager.cs`)**: Clear state transitions (`StartScreen` ➔ `Lobby` ➔ `Playing` ➔ `Rewinding` ➔ `GameOver`).
-- **Procedural Animations (`DoofusAnimator.cs`)**: Math and physics-driven wobble, squashes, and leans without heavy animation clip overhead.
-- **Snapshot-Based Rewind (`RewindManager.cs`)**: Lightweight circular buffer recording game states for smooth reverse playback.
+- **Engine**: Unity 6 (`6000.5.7f1`)
+- **Language**: C# (.NET / Mono)
+- **Input**: Unity Input System
+- **Camera**: Cinemachine with dynamic damping and screen shake
+- **Architecture**: Decoupled, event-driven design (`GameEvents` bus) for clean, modular, and maintainable gameplay logic.
 
 ---
 
-## 🗺️ Roadmap & Milestones
+## ?? Development Roadmap & Milestones
 
-- [ ] **Level 1: Core Mechanics & Configuration**
-  - Character movement with normalized input and physics collision.
-  - JSON configuration loader with full validation.
-  - Dynamic adjacent pulpit spawning (max 2 active platforms).
-  - Platform countdown timer, diegetic warning colors, and fall triggers.
-
-- [ ] **Level 2: Scoring & Progression**
-  - Score updates on visiting new platforms.
-  - Milestone fanfare and celebrations at 10, 25, and 50 pulpits.
-  - Dynamic ambient color evolution based on score tier.
-
-- [ ] **Level 3: UI & Menus**
-  - Title / Start Screen with animated prompts.
-  - Customization Lobby for player colors.
-  - In-game HUD with live score, timer indicator, and rewind counter.
-  - Game Over screen with animated score tally, best score persistence, and instant retry.
-
-- [ ] **Level 4: Game Juice & Polish**
-  - Rewind Time mechanic with slow-motion and reverse playback.
-  - Pre-fractured platform shatter physics and particle effects.
-  - Sound effects, musical pitch scaling, and soundtrack loop.
-  - Cinemachine camera follow and screen shake feedback.
+- [ ] **Level 1**: Core Character Movement & Dynamic Platform Spawning from JSON Data
+- [ ] **Level 2**: Step-by-Step Scoring System, Procedural Wobble & Visual Polish
+- [ ] **Level 3**: Start Screen, Lobby Customization, Game Over, and Rewind System
+- [ ] **Level 4**: Audio Integration, Particle Effects, Ambience & Final Polish
 
 ---
 
-## 🛠️ Requirements & Setup
+## ?? How to Run the Project
 
-1. **Unity Version**: Unity 6 (`6000.5.7f1`) or newer.
-2. **Render Pipeline**: Universal / Built-in 3D.
-3. **Packages**: TextMeshPro, Cinemachine, Input System.
-
----
-
-*Stay on your toes and reach 50 Pulpits!*
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/Dishu223/HW_2026_Test.git
+   ```
+2. Open **Unity Hub** and click **Add project from disk**.
+3. Select this folder and open using **Unity 6 (6000.5.7f1)**.
+4. Open the main scene located in `Assets/_Game/Scenes/GameScene.unity` and press **Play**!
