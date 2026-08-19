@@ -1,0 +1,142 @@
+﻿using System.Collections;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+/// <summary>
+/// Controls the in-game Heads-Up Display (HUD):
+/// live score counter with pop animations, platform countdown bar, and high score display.
+/// </summary>
+public class HUDController : MonoBehaviour
+{
+    [Header("Score Display")]
+    [SerializeField] private TextMeshProUGUI scoreText;
+    [SerializeField] private TextMeshProUGUI highScoreText;
+
+    [Header("Platform Timer Display")]
+    [SerializeField] private Image timerFillBar;
+    [SerializeField] private TextMeshProUGUI timerSecondsText;
+
+    [Header("Timer Colors")]
+    [SerializeField] private Color timerFullColor = new Color(0.18f, 0.8f, 0.44f);
+    [SerializeField] private Color timerWarnColor = new Color(0.95f, 0.77f, 0.06f);
+    [SerializeField] private Color timerCritColor = new Color(0.91f, 0.3f, 0.24f);
+
+    [Header("UI Canvas Group")]
+    [SerializeField] private CanvasGroup hudCanvasGroup;
+
+    private Coroutine scorePunchRoutine;
+
+    private void OnEnable()
+    {
+        GameEvents.OnScoreChanged += UpdateScoreDisplay;
+        GameEvents.OnPulpitTimerTick += UpdateTimerDisplay;
+        GameEvents.OnGameStart += ShowHUD;
+        GameEvents.OnGameOver += HideHUD;
+    }
+
+    private void OnDisable()
+    {
+        GameEvents.OnScoreChanged -= UpdateScoreDisplay;
+        GameEvents.OnPulpitTimerTick -= UpdateTimerDisplay;
+        GameEvents.OnGameStart -= ShowHUD;
+        GameEvents.OnGameOver -= HideHUD;
+    }
+
+    private void Start()
+    {
+        // Initial setup
+        UpdateScoreDisplay(0);
+        if (ScoreManager.Instance != null && highScoreText != null)
+        {
+            highScoreText.text = $"BEST: {ScoreManager.Instance.HighScore}";
+        }
+    }
+
+    private void UpdateScoreDisplay(int newScore)
+    {
+        if (scoreText != null)
+        {
+            scoreText.text = $"PULPITS: {newScore}";
+
+            // Trigger a satisfying punch/bounce animation on score text
+            if (gameObject.activeInHierarchy)
+            {
+                if (scorePunchRoutine != null) StopCoroutine(scorePunchRoutine);
+                scorePunchRoutine = StartCoroutine(PunchScale(scoreText.transform, 1.35f, 0.2f));
+            }
+        }
+
+        if (highScoreText != null && ScoreManager.Instance != null)
+        {
+            highScoreText.text = $"BEST: {ScoreManager.Instance.HighScore}";
+        }
+    }
+
+    private void UpdateTimerDisplay(float normalizedTime)
+    {
+        if (timerFillBar != null)
+        {
+            timerFillBar.fillAmount = normalizedTime;
+
+            // Color shift on timer bar
+            if (normalizedTime > 0.5f)
+            {
+                float t = (1f - normalizedTime) * 2f;
+                timerFillBar.color = Color.Lerp(timerFullColor, timerWarnColor, t);
+            }
+            else
+            {
+                float t = (0.5f - normalizedTime) * 2f;
+                timerFillBar.color = Color.Lerp(timerWarnColor, timerCritColor, t);
+            }
+        }
+    }
+
+    private IEnumerator PunchScale(Transform target, float punchScale, float duration)
+    {
+        Vector3 initialScale = Vector3.one;
+        Vector3 targetScale = Vector3.one * punchScale;
+        float halfDuration = duration / 2f;
+
+        // Scale Up
+        float elapsed = 0f;
+        while (elapsed < halfDuration)
+        {
+            elapsed += Time.deltaTime;
+            target.localScale = Vector3.Lerp(initialScale, targetScale, elapsed / halfDuration);
+            yield return null;
+        }
+
+        // Scale Back Down
+        elapsed = 0f;
+        while (elapsed < halfDuration)
+        {
+            elapsed += Time.deltaTime;
+            target.localScale = Vector3.Lerp(targetScale, initialScale, elapsed / halfDuration);
+            yield return null;
+        }
+
+        target.localScale = initialScale;
+    }
+
+    public void ShowHUD()
+    {
+        if (hudCanvasGroup != null)
+        {
+            hudCanvasGroup.alpha = 1f;
+            hudCanvasGroup.interactable = true;
+            hudCanvasGroup.blocksRaycasts = true;
+        }
+    }
+
+    public void HideHUD()
+    {
+        if (hudCanvasGroup != null)
+        {
+            hudCanvasGroup.alpha = 0f;
+            hudCanvasGroup.interactable = false;
+            hudCanvasGroup.blocksRaycasts = false;
+        }
+    }
+}
