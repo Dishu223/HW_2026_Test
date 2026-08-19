@@ -30,10 +30,10 @@ Doofus loves exploring floating green platforms, but there's a catch: **Pulpits 
 
 ### 🏁 Level 1: Core Movement & Platform Spawning
 - [ ] Read configuration values (`speed`, `destroy_time`, `spawn_time`) from JSON data
-- [ ] Physics-based character controller with WASD / Arrow key movement
-- [ ] Platform manager spawning adjacent platforms (max 2 active simultaneously)
-- [ ] Individual platform countdown timers and destruction
-- [ ] Fall detection and boundary handling
+- [x] Physics-based character controller with WASD / Arrow key movement
+- [x] Platform manager spawning adjacent platforms (max 2 active simultaneously)
+- [x] Individual platform countdown timers and destruction
+- [x] Fall detection and boundary handling
 
 ### 🎯 Level 2: Scoring & Progression
 - [ ] Score tracking for every unique pulpit stepped on
@@ -72,3 +72,4 @@ Doofus loves exploring floating green platforms, but there's a catch: **Pulpits 
 - **Language**: C# (.NET Standard)
 - **Render Pipeline**: Built-in 3D
 - **Input**: Unity Input System
+
