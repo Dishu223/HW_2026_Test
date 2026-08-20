@@ -4,16 +4,19 @@ using UnityEngine;
 
 /// <summary>
 /// Manages spawning and positioning of Pulpit platforms.
-/// Spawns platforms only during active gameplay.
+/// Tracks remaining spawn time for on-tile diegetic timer displays.
 /// </summary>
 public class PulpitManager : MonoBehaviour
 {
+    public static PulpitManager Instance { get; private set; }
+
     [Header("Platform Prefab")]
     [SerializeField] private GameObject pulpitPrefab;
 
     [Header("Grid Configuration")]
-    [Tooltip("Platform size/spacing (5 units for fast-paced gameplay)")]
     [SerializeField] private float platformSize = 5f;
+
+    public float RemainingSpawnTime { get; private set; } = 0f;
 
     private readonly List<GameObject> activePulpits = new List<GameObject>();
     private Vector3 currentPulpitPosition = Vector3.zero;
@@ -27,6 +30,16 @@ public class PulpitManager : MonoBehaviour
         Vector3.right,
         Vector3.left
     };
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+    }
 
     private void OnEnable()
     {
@@ -46,14 +59,12 @@ public class PulpitManager : MonoBehaviour
 
     private void Start()
     {
-        // If GameManager is in Playing state at startup, spawn; otherwise wait for OnGameStart event
         if (GameManager.Instance != null && GameManager.Instance.IsPlaying)
         {
             StartGameSpawning();
         }
         else
         {
-            // Spawn initial preview platform
             SpawnPulpitAt(Vector3.zero);
         }
     }
@@ -83,14 +94,23 @@ public class PulpitManager : MonoBehaviour
             StopCoroutine(spawnRoutine);
             spawnRoutine = null;
         }
+        RemainingSpawnTime = 0f;
     }
 
     private IEnumerator SpawnLoopCoroutine()
     {
         while (true)
         {
-            float spawnDelay = GameConfig.Instance != null ? GameConfig.Instance.SpawnTime : 2.5f;
-            yield return new WaitForSeconds(spawnDelay);
+            float totalSpawnDelay = GameConfig.Instance != null ? GameConfig.Instance.SpawnTime : 2.5f;
+            RemainingSpawnTime = totalSpawnDelay;
+
+            while (RemainingSpawnTime > 0f)
+            {
+                RemainingSpawnTime -= Time.deltaTime;
+                yield return null;
+            }
+
+            RemainingSpawnTime = 0f;
 
             activePulpits.RemoveAll(item => item == null);
 

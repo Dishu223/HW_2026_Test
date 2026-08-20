@@ -4,9 +4,8 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Controls in-game HUD displays:
-/// live score counter with punch bounce animation and platform countdown bar.
-/// (Panel visibility is strictly managed by UIManager).
+/// Controls in-game HUD displays (Score counter & High score).
+/// Activates strictly when gameplay starts, and hides when on menus or game over.
 /// </summary>
 public class HUDController : MonoBehaviour
 {
@@ -14,35 +13,44 @@ public class HUDController : MonoBehaviour
     [SerializeField] private TextMeshProUGUI scoreText;
     [SerializeField] private TextMeshProUGUI highScoreText;
 
-    [Header("Platform Timer Display")]
-    [SerializeField] private Image timerFillBar;
-
-    [Header("Timer Colors")]
-    [SerializeField] private Color timerFullColor = new Color(0.18f, 0.8f, 0.44f);
-    [SerializeField] private Color timerWarnColor = new Color(0.95f, 0.77f, 0.06f);
-    [SerializeField] private Color timerCritColor = new Color(0.91f, 0.3f, 0.24f);
-
     private Coroutine scorePunchRoutine;
+
+    private void Awake()
+    {
+        // Hide HUD until game starts
+        gameObject.SetActive(false);
+    }
 
     private void OnEnable()
     {
+        GameEvents.OnGameStart += HandleGameStart;
+        GameEvents.OnGameOver += HandleGameOver;
+        GameEvents.OnReturnToLobby += HandleReturnToLobby;
         GameEvents.OnScoreChanged += UpdateScoreDisplay;
-        GameEvents.OnPulpitTimerTick += UpdateTimerDisplay;
     }
 
     private void OnDisable()
     {
+        GameEvents.OnGameStart -= HandleGameStart;
+        GameEvents.OnGameOver -= HandleGameOver;
+        GameEvents.OnReturnToLobby -= HandleReturnToLobby;
         GameEvents.OnScoreChanged -= UpdateScoreDisplay;
-        GameEvents.OnPulpitTimerTick -= UpdateTimerDisplay;
     }
 
-    private void Start()
+    private void HandleGameStart()
     {
+        gameObject.SetActive(true);
         UpdateScoreDisplay(0);
-        if (ScoreManager.Instance != null && highScoreText != null)
-        {
-            highScoreText.text = $"BEST: {ScoreManager.Instance.HighScore}";
-        }
+    }
+
+    private void HandleGameOver()
+    {
+        gameObject.SetActive(false);
+    }
+
+    private void HandleReturnToLobby()
+    {
+        gameObject.SetActive(false);
     }
 
     private void UpdateScoreDisplay(int newScore)
@@ -61,25 +69,6 @@ public class HUDController : MonoBehaviour
         if (highScoreText != null && ScoreManager.Instance != null)
         {
             highScoreText.text = $"BEST: {ScoreManager.Instance.HighScore}";
-        }
-    }
-
-    private void UpdateTimerDisplay(float normalizedTime)
-    {
-        if (timerFillBar != null)
-        {
-            timerFillBar.fillAmount = normalizedTime;
-
-            if (normalizedTime > 0.5f)
-            {
-                float t = (1f - normalizedTime) * 2f;
-                timerFillBar.color = Color.Lerp(timerFullColor, timerWarnColor, t);
-            }
-            else
-            {
-                float t = (0.5f - normalizedTime) * 2f;
-                timerFillBar.color = Color.Lerp(timerWarnColor, timerCritColor, t);
-            }
         }
     }
 
