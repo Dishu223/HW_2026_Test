@@ -1,33 +1,56 @@
-﻿using TMPro;
+﻿using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 
 /// <summary>
 /// Controls an individual pulpit platform:
-/// - Lifetime of exactly 5 seconds
-/// - Smooth color shift (Green -> Yellow -> Red)
-/// - Diegetic countdown timer
+/// - Records rolling snapshot history of lifetime and destruction state
+/// - Plays in reverse during Prince of Persia Time Rewind (reconstructing destroyed platforms!)
+/// - Smooth color shift (Green -> Yellow -> Red in forward, Red -> Yellow -> Green in reverse)
 /// </summary>
 public class Pulpit : MonoBehaviour
 {
     [Header("Visual Feedback")]
     [SerializeField] private Renderer platformRenderer;
-    [SerializeField] private Color normalColor = new Color(0.18f, 0.8f, 0.44f);  // Crisp Green
-    [SerializeField] private Color warningColor = new Color(0.95f, 0.77f, 0.06f); // Yellow Warning
-    [SerializeField] private Color criticalColor = new Color(0.91f, 0.3f, 0.24f); // Red Critical
+    [SerializeField] private Collider platformCollider;
+    [SerializeField] private Color normalColor = new Color(0.18f, 0.8f, 0.44f);
+    [SerializeField] private Color warningColor = new Color(0.95f, 0.77f, 0.06f);
+    [SerializeField] private Color criticalColor = new Color(0.91f, 0.3f, 0.24f);
 
     [Header("On-Tile Timer Text")]
     [SerializeField] private TextMeshPro timerText;
 
+    public struct PulpitSnapshot
+    {
+        public float remainingTime;
+        public bool isDestroyed;
+
+        public PulpitSnapshot(float time, bool destroyed)
+        {
+            remainingTime = time;
+            isDestroyed = destroyed;
+        }
+    }
+
+    private readonly LinkedList<PulpitSnapshot> historyBuffer = new LinkedList<PulpitSnapshot>();
     private float lifetime = 5f;
     private float remainingTime = 5f;
     private bool isDestroyed = false;
+    private bool isRewinding = false;
     private bool hasPlayerVisited = false;
     private Material runtimeMaterial;
+    private float timeSinceDestroyed = 0f;
+
+    public bool IsDestroyed => isDestroyed;
+    public float RemainingTime => remainingTime;
 
     private void Awake()
     {
         if (platformRenderer == null)
             platformRenderer = GetComponent<Renderer>();
+
+        if (platformCollider == null)
+            platformCollider = GetComponent<Collider>();
 
         if (platformRenderer != null)
             runtimeMaterial = platformRenderer.material;
@@ -41,6 +64,18 @@ public class Pulpit : MonoBehaviour
         InitializeLifetime();
     }
 
+    private void OnEnable()
+    {
+        GameEvents.OnRewindStart += HandleRewindStart;
+        GameEvents.OnRewindComplete += HandleRewindComplete;
+    }
+
+    private void OnDisable()
+    {
+        GameEvents.OnRewindStart -= HandleRewindStart;
+        GameEvents.OnRewindComplete -= HandleRewindComplete;
+    }
+
     public void InitializeLifetime()
     {
         float minTime = GameConfig.Instance != null ? GameConfig.Instance.MinDestroyTime : 5f;
@@ -50,15 +85,50 @@ public class Pulpit : MonoBehaviour
         remainingTime = lifetime;
         isDestroyed = false;
         hasPlayerVisited = false;
+        timeSinceDestroyed = 0f;
 
+        SetPlatformVisibility(true);
         UpdateVisuals(1f);
         UpdateTileText(remainingTime);
     }
 
+    private void FixedUpdate()
+    {
+        // 1. Record history while playing normally
+        if (!isRewinding && GameManager.Instance != null && GameManager.Instance.IsPlaying)
+        {
+            historyBuffer.AddLast(new PulpitSnapshot(remainingTime, isDestroyed));
+
+            // Keep ~4.0 seconds of history
+            int maxSnapshots = Mathf.RoundToInt(4.0f / Time.fixedDeltaTime);
+            while (historyBuffer.Count > maxSnapshots)
+            {
+                historyBuffer.RemoveFirst();
+            }
+        }
+        // 2. Play history in reverse during Time Rewind
+        else if (isRewinding)
+        {
+            RewindStep();
+        }
+    }
+
     private void Update()
     {
-        if (isDestroyed) return;
+        if (isRewinding) return;
 
+        if (isDestroyed)
+        {
+            timeSinceDestroyed += Time.deltaTime;
+            // Only truly destroy from memory after 6 seconds (ensuring it stays in the rewind window!)
+            if (timeSinceDestroyed > 6.0f)
+            {
+                Destroy(gameObject);
+            }
+            return;
+        }
+
+        // Freeze when on start menu
         if (GameManager.Instance != null && !GameManager.Instance.IsPlaying)
         {
             UpdateTileText(remainingTime);
@@ -75,8 +145,65 @@ public class Pulpit : MonoBehaviour
 
         if (remainingTime <= 0f)
         {
-            DestroyPulpit();
+            CollapsePulpit();
         }
+    }
+
+    /// <summary>
+    /// Rewinds this platform's timer and resurrects it if it was collapsed!
+    /// </summary>
+    public void RewindStep()
+    {
+        if (historyBuffer.Count == 0) return;
+
+        // Skip frames to match rewind playback speed
+        int skip = 2;
+        for (int i = 0; i < skip && historyBuffer.Count > 0; i++)
+        {
+            PulpitSnapshot snap = historyBuffer.Last.Value;
+            historyBuffer.RemoveLast();
+
+            remainingTime = snap.remainingTime;
+            
+            // If it was dead, resurrect it!
+            if (!snap.isDestroyed && isDestroyed)
+            {
+                ResurrectPulpit();
+            }
+            else if (snap.isDestroyed && !isDestroyed)
+            {
+                SetPlatformVisibility(false);
+                isDestroyed = true;
+            }
+        }
+
+        float normalizedTime = Mathf.Clamp01(remainingTime / lifetime);
+        UpdateVisuals(normalizedTime);
+        UpdateTileText(remainingTime);
+    }
+
+    private void CollapsePulpit()
+    {
+        if (isDestroyed) return;
+        isDestroyed = true;
+        timeSinceDestroyed = 0f;
+
+        SetPlatformVisibility(false);
+        GameEvents.TriggerPulpitDestroyed(transform.position);
+    }
+
+    private void ResurrectPulpit()
+    {
+        isDestroyed = false;
+        timeSinceDestroyed = 0f;
+        SetPlatformVisibility(true);
+    }
+
+    private void SetPlatformVisibility(bool visible)
+    {
+        if (platformRenderer != null) platformRenderer.enabled = visible;
+        if (platformCollider != null) platformCollider.enabled = visible;
+        if (timerText != null) timerText.gameObject.SetActive(visible);
     }
 
     private void UpdateVisuals(float normalizedTime)
@@ -129,6 +256,20 @@ public class Pulpit : MonoBehaviour
         }
     }
 
+    private void HandleRewindStart()
+    {
+        isRewinding = true;
+    }
+
+    private void HandleRewindComplete()
+    {
+        isRewinding = false;
+        if (!isDestroyed)
+        {
+            SetPlatformVisibility(true);
+        }
+    }
+
     private void OnCollisionEnter(Collision collision)
     {
         if (!hasPlayerVisited && collision.gameObject.GetComponent<DoofusController>() != null)
@@ -136,15 +277,6 @@ public class Pulpit : MonoBehaviour
             hasPlayerVisited = true;
             GameEvents.TriggerPulpitLanded();
         }
-    }
-
-    public void DestroyPulpit()
-    {
-        if (isDestroyed) return;
-        isDestroyed = true;
-
-        GameEvents.TriggerPulpitDestroyed(transform.position);
-        Destroy(gameObject);
     }
 
     private void OnDestroy()

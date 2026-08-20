@@ -5,8 +5,8 @@ using UnityEngine;
 /// <summary>
 /// Prince of Persia / Braid style Time Rewind Engine:
 /// - High-frequency circular snapshot recorder of player state
-/// - Intercepts fatal falls and plays reverse movement arc backwards in slow-motion
-/// - Manages 3 Sand of Time charges with HUD event broadcasting
+/// - Rewinds player motion arc, platform timers, and un-shatters collapsed platforms
+/// - Smooth landing with zero floating stutter
 /// </summary>
 public class RewindManager : MonoBehaviour
 {
@@ -16,7 +16,7 @@ public class RewindManager : MonoBehaviour
     [Tooltip("How many seconds of history to record")]
     [SerializeField] private float maxRecordSeconds = 3.5f;
 
-    [Tooltip("Speed multiplier for reverse playback (2.0x = rewinds twice as fast)")]
+    [Tooltip("Speed multiplier for reverse playback (2.2x = rewinds in ~1.5s)")]
     [SerializeField] private float rewindPlaybackSpeed = 2.2f;
 
     [Tooltip("Maximum rewind charges per run")]
@@ -30,13 +30,11 @@ public class RewindManager : MonoBehaviour
     {
         public Vector3 position;
         public Quaternion rotation;
-        public Vector3 velocity;
 
-        public PlayerSnapshot(Vector3 pos, Quaternion rot, Vector3 vel)
+        public PlayerSnapshot(Vector3 pos, Quaternion rot)
         {
             position = pos;
             rotation = rot;
-            velocity = vel;
         }
     }
 
@@ -46,7 +44,7 @@ public class RewindManager : MonoBehaviour
     private Coroutine rewindRoutine;
 
     public bool IsRewinding => isRewinding;
-    public bool CanRewind => currentCharges > 0 && !isRewinding && snapshotBuffer.Count > 10;
+    public bool CanRewind => currentCharges > 0 && !isRewinding && snapshotBuffer.Count > 15;
     public int CurrentCharges => currentCharges;
     public int MaxCharges => maxCharges;
 
@@ -108,7 +106,6 @@ public class RewindManager : MonoBehaviour
     {
         if (isRewinding) return;
 
-        // Only record history during active gameplay
         if (GameManager.Instance != null && !GameManager.Instance.IsPlaying) return;
 
         if (playerTransform == null)
@@ -117,10 +114,8 @@ public class RewindManager : MonoBehaviour
             if (playerTransform == null) return;
         }
 
-        Vector3 vel = playerRigidbody != null ? playerRigidbody.linearVelocity : Vector3.zero;
-        snapshotBuffer.AddLast(new PlayerSnapshot(playerTransform.position, playerTransform.rotation, vel));
+        snapshotBuffer.AddLast(new PlayerSnapshot(playerTransform.position, playerTransform.rotation));
 
-        // Maintain fixed duration buffer
         int maxSnapshots = Mathf.RoundToInt(maxRecordSeconds / Time.fixedDeltaTime);
         while (snapshotBuffer.Count > maxSnapshots)
         {
@@ -129,7 +124,7 @@ public class RewindManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Initiates reverse time playback, consuming 1 Sand Charge.
+    /// Initiates reverse time playback across player, platforms, and timers.
     /// </summary>
     public void TriggerRewind()
     {
@@ -150,9 +145,10 @@ public class RewindManager : MonoBehaviour
         if (playerRigidbody != null)
         {
             playerRigidbody.isKinematic = true;
+            playerRigidbody.linearVelocity = Vector3.zero;
         }
 
-        // Play back snapshots in reverse
+        // Rewind playback loop
         while (snapshotBuffer.Count > 0)
         {
             PlayerSnapshot snapshot = snapshotBuffer.Last.Value;
@@ -164,7 +160,6 @@ public class RewindManager : MonoBehaviour
                 playerTransform.rotation = snapshot.rotation;
             }
 
-            // Skip frames based on playback speed
             int framesToSkip = Mathf.Max(1, Mathf.RoundToInt(rewindPlaybackSpeed));
             for (int i = 0; i < framesToSkip - 1 && snapshotBuffer.Count > 0; i++)
             {
@@ -174,7 +169,7 @@ public class RewindManager : MonoBehaviour
             yield return new WaitForFixedUpdate();
         }
 
-        // Settle player back safely on ground
+        // Seamless landing back on the platform
         if (playerRigidbody != null)
         {
             playerRigidbody.isKinematic = false;
