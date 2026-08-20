@@ -2,7 +2,7 @@
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Controls Doofus physics movement and detects fatal falls.
+/// Controls Doofus physics movement, Shift Dash ability, and detects fatal falls.
 /// Automatically equips DoofusLocomotionVFX for visual game juice.
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
@@ -11,14 +11,26 @@ public class DoofusController : MonoBehaviour
     [Header("Fall Detection")]
     [SerializeField] private float fallThresholdY = -1.5f;
 
+    [Header("Dash Ability Tuning")]
+    [SerializeField] private float dashSpeedMultiplier = 3.2f;
+    [SerializeField] private float dashDuration = 0.22f;
+    [SerializeField] private float dashCooldown = 0.85f;
+
     private Rigidbody rb;
     private Vector3 moveInput;
     private bool isInputActive = false;
     private bool isRewinding = false;
     private float fallGraceCooldown = 0f;
 
+    private bool isDashing = false;
+    private float dashTimer = 0f;
+    private float dashCooldownTimer = 0f;
+    private Vector3 dashDirection = Vector3.forward;
+
     public Vector3 MoveInput => moveInput;
-    public bool IsMoving => isInputActive && moveInput.sqrMagnitude > 0.01f;
+    public bool IsMoving => isInputActive && (moveInput.sqrMagnitude > 0.01f || isDashing);
+    public bool IsDashing => isDashing;
+    public float DashProgress => isDashing ? Mathf.Clamp01(dashTimer / dashDuration) : 0f;
 
     private void Awake()
     {
@@ -28,7 +40,6 @@ public class DoofusController : MonoBehaviour
 
         transform.rotation = Quaternion.Euler(0f, 180f, 0f);
 
-        // Automatically add locomotion juice (dust puffs, skid clouds)
         if (GetComponent<DoofusLocomotionVFX>() == null)
         {
             gameObject.AddComponent<DoofusLocomotionVFX>();
@@ -70,6 +81,20 @@ public class DoofusController : MonoBehaviour
             fallGraceCooldown -= Time.deltaTime;
         }
 
+        if (dashCooldownTimer > 0f)
+        {
+            dashCooldownTimer -= Time.deltaTime;
+        }
+
+        if (isDashing)
+        {
+            dashTimer += Time.deltaTime;
+            if (dashTimer >= dashDuration)
+            {
+                isDashing = false;
+            }
+        }
+
         if (!isInputActive || isRewinding)
         {
             moveInput = Vector3.zero;
@@ -77,6 +102,13 @@ public class DoofusController : MonoBehaviour
         }
 
         moveInput = ReadKeyboardInput();
+
+        // Check Shift Dash key trigger
+        bool shiftPressed = Keyboard.current != null && (Keyboard.current.leftShiftKey.wasPressedThisFrame || Keyboard.current.rightShiftKey.wasPressedThisFrame);
+        if (shiftPressed && dashCooldownTimer <= 0f && !isDashing)
+        {
+            TriggerDash();
+        }
 
         if (fallGraceCooldown <= 0f && transform.position.y < fallThresholdY)
         {
@@ -91,13 +123,38 @@ public class DoofusController : MonoBehaviour
         }
     }
 
+    private void TriggerDash()
+    {
+        isDashing = true;
+        dashTimer = 0f;
+        dashCooldownTimer = dashCooldown;
+
+        // Dash in current move direction, or forward if standing still
+        if (moveInput.sqrMagnitude > 0.05f)
+            dashDirection = moveInput.normalized;
+        else
+            dashDirection = transform.forward;
+    }
+
     private void FixedUpdate()
     {
-        if (!isInputActive || isRewinding || moveInput == Vector3.zero) return;
+        if (!isInputActive || isRewinding) return;
 
-        float speed = GameConfig.Instance != null ? GameConfig.Instance.PlayerSpeed : 3f;
-        Vector3 targetPosition = rb.position + moveInput * speed * Time.fixedDeltaTime;
-        rb.MovePosition(targetPosition);
+        float baseSpeed = GameConfig.Instance != null ? GameConfig.Instance.PlayerSpeed : 3f;
+
+        if (isDashing)
+        {
+            // Smooth dash speed curve: punchy burst that glides out
+            float t = dashTimer / dashDuration;
+            float speedCurve = Mathf.Lerp(dashSpeedMultiplier, 1.2f, t * t);
+            Vector3 targetPosition = rb.position + dashDirection * (baseSpeed * speedCurve) * Time.fixedDeltaTime;
+            rb.MovePosition(targetPosition);
+        }
+        else if (moveInput != Vector3.zero)
+        {
+            Vector3 targetPosition = rb.position + moveInput * baseSpeed * Time.fixedDeltaTime;
+            rb.MovePosition(targetPosition);
+        }
     }
 
     private Vector3 ReadKeyboardInput()
@@ -122,6 +179,9 @@ public class DoofusController : MonoBehaviour
     {
         isInputActive = true;
         isRewinding = false;
+        isDashing = false;
+        dashTimer = 0f;
+        dashCooldownTimer = 0f;
         fallGraceCooldown = 0f;
 
         if (rb != null)
@@ -138,12 +198,14 @@ public class DoofusController : MonoBehaviour
     private void HandleGameOver()
     {
         isInputActive = false;
+        isDashing = false;
         moveInput = Vector3.zero;
     }
 
     private void HandleReturnToLobby()
     {
         isInputActive = false;
+        isDashing = false;
         moveInput = Vector3.zero;
         if (rb != null)
         {
@@ -156,6 +218,7 @@ public class DoofusController : MonoBehaviour
     {
         isRewinding = true;
         isInputActive = false;
+        isDashing = false;
         moveInput = Vector3.zero;
     }
 
@@ -163,6 +226,7 @@ public class DoofusController : MonoBehaviour
     {
         isRewinding = false;
         isInputActive = true;
+        isDashing = false;
         fallGraceCooldown = 1.5f;
 
         if (rb != null)

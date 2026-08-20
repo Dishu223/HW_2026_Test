@@ -5,6 +5,7 @@ using UnityEngine;
 /// <summary>
 /// Cartoon procedural animator for Doofus:
 /// - Smooth acceleration lean and head drag
+/// - Exaggerated smooth head lag backward during Shift Dash and buttery recovery!
 /// - Continuous rhythmic back-and-forth head bobbing while running
 /// - Exaggerated stopping brake & forward whip
 /// - High-visibility cartoon eyes
@@ -21,15 +22,17 @@ public class DoofusAnimator : MonoBehaviour
     [Header("Turning & Acceleration Lean")]
     [SerializeField] private float turnSpeed = 18f;
     [SerializeField] private float runLeanBackwardAngle = 22f;
+    [SerializeField] private float dashLeanBackwardAngle = 38f;
     [SerializeField] private float stopOvershootAngle = 18f;
     [SerializeField] private float leanSmoothSpeed = 10f;
 
-    [Header("Head Movement & Continuous Running Bob")]
+    [Header("Head Movement & Dash Lag")]
     [SerializeField] private float headRunLagDistance = 0.22f;
+    [SerializeField] private float headDashLagDistance = 0.65f; // Exaggerated head whip backward!
     [SerializeField] private float headRunBobSpeed = 16f;
     [SerializeField] private float headRunBobAmount = 0.08f;
     [SerializeField] private float headStopOvershoot = 0.25f;
-    [SerializeField] private float headSpringTime = 0.10f;
+    [SerializeField] private float headSpringTime = 0.09f;
 
     [Header("Idle Breathing")]
     [SerializeField] private float idleBounceSpeed = 4f;
@@ -110,7 +113,8 @@ public class DoofusAnimator : MonoBehaviour
         }
 
         Vector3 moveInput = controller != null ? controller.MoveInput : Vector3.zero;
-        bool isMoving = moveInput.sqrMagnitude > 0.01f;
+        bool isDashing = controller != null && controller.IsDashing;
+        bool isMoving = controller != null ? controller.IsMoving : moveInput.sqrMagnitude > 0.01f;
 
         if (wasMovingLastFrame && !isMoving)
         {
@@ -124,15 +128,15 @@ public class DoofusAnimator : MonoBehaviour
             stopOvershootTimer -= Time.deltaTime;
         }
 
-        ApplyMovementAndBraking(moveInput, isMoving);
-        ApplyHeadSpringAndBobbing(moveInput, isMoving);
+        ApplyMovementAndBraking(moveInput, isMoving, isDashing);
+        ApplyHeadSpringAndBobbing(moveInput, isMoving, isDashing);
         ApplyIdleBounce(isMoving);
-        UpdateEyeExpressions(isMoving);
+        UpdateEyeExpressions(isMoving, isDashing);
     }
 
-    private void ApplyMovementAndBraking(Vector3 moveInput, bool isMoving)
+    private void ApplyMovementAndBraking(Vector3 moveInput, bool isMoving, bool isDashing)
     {
-        if (isMoving)
+        if (isMoving && moveInput.sqrMagnitude > 0.01f)
         {
             Quaternion targetLook = Quaternion.LookRotation(moveInput, Vector3.up);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetLook, Time.deltaTime * turnSpeed);
@@ -142,7 +146,11 @@ public class DoofusAnimator : MonoBehaviour
         {
             Quaternion targetLean = Quaternion.identity;
 
-            if (isMoving)
+            if (isDashing)
+            {
+                targetLean = Quaternion.Euler(dashLeanBackwardAngle, 0f, 0f);
+            }
+            else if (isMoving)
             {
                 targetLean = Quaternion.Euler(runLeanBackwardAngle, 0f, 0f);
             }
@@ -153,17 +161,24 @@ public class DoofusAnimator : MonoBehaviour
                 targetLean = Quaternion.Euler(-angle, 0f, 0f);
             }
 
-            bodyTransform.localRotation = Quaternion.Slerp(bodyTransform.localRotation, targetLean, Time.deltaTime * leanSmoothSpeed);
+            float smoothSpeed = isDashing ? 16f : leanSmoothSpeed;
+            bodyTransform.localRotation = Quaternion.Slerp(bodyTransform.localRotation, targetLean, Time.deltaTime * smoothSpeed);
         }
     }
 
-    private void ApplyHeadSpringAndBobbing(Vector3 moveInput, bool isMoving)
+    private void ApplyHeadSpringAndBobbing(Vector3 moveInput, bool isMoving, bool isDashing)
     {
         if (headTransform == null) return;
 
         Vector3 targetHeadLocalPos = defaultHeadLocalPos;
 
-        if (isMoving)
+        if (isDashing)
+        {
+            // Exaggerated smooth head drag backward and down during dash
+            targetHeadLocalPos.z -= headDashLagDistance;
+            targetHeadLocalPos.y -= 0.08f;
+        }
+        else if (isMoving)
         {
             targetHeadLocalPos.z -= headRunLagDistance;
             float bob = Mathf.Sin(Time.time * headRunBobSpeed) * headRunBobAmount;
@@ -176,11 +191,12 @@ public class DoofusAnimator : MonoBehaviour
             targetHeadLocalPos.z += overshootZ;
         }
 
+        float springTime = isDashing ? 0.06f : headSpringTime;
         headTransform.localPosition = Vector3.SmoothDamp(
             headTransform.localPosition,
             targetHeadLocalPos,
             ref headVelocity,
-            headSpringTime
+            springTime
         );
     }
 
@@ -192,7 +208,7 @@ public class DoofusAnimator : MonoBehaviour
         bodyTransform.localPosition = defaultBodyLocalPos + new Vector3(0f, bounce, 0f);
     }
 
-    private void UpdateEyeExpressions(bool isMoving)
+    private void UpdateEyeExpressions(bool isMoving, bool isDashing)
     {
         if (leftEyeTransform == null || rightEyeTransform == null) return;
 
@@ -211,7 +227,12 @@ public class DoofusAnimator : MonoBehaviour
         {
             Vector3 targetScale = defaultEyeScale;
 
-            if (currentPulpitTimer < 0.35f)
+            if (isDashing)
+            {
+                // Wide wind-speed dashed eyes
+                targetScale = new Vector3(defaultEyeScale.x * 1.45f, defaultEyeScale.y * 1.35f, defaultEyeScale.z);
+            }
+            else if (currentPulpitTimer < 0.35f)
             {
                 float panicT = 1f - (currentPulpitTimer / 0.35f);
                 float panicScale = 1.0f + panicT * 0.50f;
@@ -322,7 +343,6 @@ public class DoofusAnimator : MonoBehaviour
 
     private void HandleGameOver()
     {
-        // Keep mesh continuously visible for smooth physics fall
     }
 
     private void HandleTimerTickForEyes(float normalizedTime)
@@ -340,7 +360,6 @@ public class DoofusAnimator : MonoBehaviour
 
     private void ApplyFallingTumble()
     {
-        // Smooth World-Space gentle rotation while falling
         transform.Rotate(new Vector3(110f, 65f, 40f) * Time.deltaTime, Space.World);
     }
 

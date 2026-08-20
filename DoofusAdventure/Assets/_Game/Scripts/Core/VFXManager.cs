@@ -2,7 +2,7 @@
 
 /// <summary>
 /// Fully Configurable Particle VFX & Game Juice Manager:
-/// - Platform Spawn Edge Dust: Bursts from underneath the perimeter edges of the tile!
+/// - Platform Spawn Edge Dust: Shoots strictly OUTWARD horizontally from downside perimeter edges!
 /// - Inspector-exposed tuning parameters (colors, sizes, speeds, particle counts)
 /// - Optional Custom Prefab / ParticleSystem slots for complete DIY customization in Inspector
 /// </summary>
@@ -20,11 +20,11 @@ public class VFXManager : MonoBehaviour
 
     [Header("--- Platform Spawn Edge Particles Tuning ---")]
     [SerializeField] private Color spawnEdgeColor = new Color(0.92f, 0.95f, 1f, 0.85f);
-    [SerializeField] private float spawnEdgeParticleSize = 0.38f;
-    [SerializeField] private float spawnEdgeParticleLifetime = 0.45f;
-    [SerializeField] private float spawnEdgeParticleSpeed = 1.6f;
+    [SerializeField] private float spawnEdgeParticleSize = 0.35f;
+    [SerializeField] private float spawnEdgeParticleLifetime = 0.40f;
+    [SerializeField] private float spawnEdgeParticleSpeed = 2.4f;
     [SerializeField] private int spawnEdgeParticleCount = 48;
-    [SerializeField] private float platformDimension = 5f; // Platform X/Z size
+    [SerializeField] private float platformDimension = 5f;
 
     [Header("--- Landing Shockwave Tuning ---")]
     [SerializeField] private Color landingColor = new Color(1f, 1f, 1f, 0.75f);
@@ -103,11 +103,11 @@ public class VFXManager : MonoBehaviour
 
     private void BuildProceduralParticleSystems()
     {
-        // 1. Edge perimeter dust for platform placement (Edge Box Perimeter)
+        // 1. Edge perimeter dust for platform placement
         if (customSpawnPuffPrefab != null)
             spawnEdgeDustPS = Instantiate(customSpawnPuffPrefab, transform);
         else
-            spawnEdgeDustPS = CreateEdgeBoxParticleSystem("PlatformSpawn_EdgeDust_PS", spawnEdgeParticleCount, spawnEdgeColor, spawnEdgeParticleLifetime, spawnEdgeParticleSize, spawnEdgeParticleSpeed, platformDimension);
+            spawnEdgeDustPS = CreateOutwardEdgeParticleSystem("PlatformSpawn_EdgeDust_PS", spawnEdgeParticleCount, spawnEdgeColor, spawnEdgeParticleLifetime, spawnEdgeParticleSize, spawnEdgeParticleSpeed);
 
         // 2. Landing Shockwave
         if (customLandingRingPrefab != null)
@@ -134,7 +134,7 @@ public class VFXManager : MonoBehaviour
             milestoneConfettiPS = CreateCircleParticleSystem("MilestoneConfetti_PS", confettiParticleCount, confettiColor, confettiParticleLifetime, confettiParticleSize, 5.0f);
     }
 
-    private ParticleSystem CreateEdgeBoxParticleSystem(string name, int maxParticles, Color color, float lifetime, float size, float speed, float sizeBox)
+    private ParticleSystem CreateOutwardEdgeParticleSystem(string name, int maxParticles, Color color, float lifetime, float size, float speed)
     {
         GameObject psObj = new GameObject(name);
         psObj.transform.SetParent(transform);
@@ -154,25 +154,22 @@ public class VFXManager : MonoBehaviour
         main.maxParticles = maxParticles * 2;
         main.startLifetime = lifetime;
         main.startSize = size;
-        main.startSpeed = speed;
+        main.startSpeed = 0f; // Velocity driven by explicit outward velocity
         main.startColor = color;
-        main.gravityModifier = -0.2f; // Soft upward lift
+        main.gravityModifier = 0f;
         main.simulationSpace = ParticleSystemSimulationSpace.World;
 
         var emission = ps.emission;
         emission.rateOverTime = 0;
 
-        // Shape: Box Edge perimeter (X/Z edge perimeter around platform dimensions)
         var shape = ps.shape;
-        shape.enabled = true;
-        shape.shapeType = ParticleSystemShapeType.BoxEdge;
-        shape.scale = new Vector3(sizeBox * 0.96f, 0.1f, sizeBox * 0.96f);
+        shape.enabled = false; // We emit manually along all 4 downside edges with outward velocity
 
         var sizeOverLifetime = ps.sizeOverLifetime;
         sizeOverLifetime.enabled = true;
         AnimationCurve sizeCurve = new AnimationCurve();
         sizeCurve.AddKey(0f, 0.4f);
-        sizeCurve.AddKey(0.25f, 1.2f);
+        sizeCurve.AddKey(0.25f, 1.25f);
         sizeCurve.AddKey(1f, 0f);
         sizeOverLifetime.size = new ParticleSystem.MinMaxCurve(1f, sizeCurve);
 
@@ -243,12 +240,42 @@ public class VFXManager : MonoBehaviour
     #region Trigger Methods
     public void SpawnPlatformEdgeDust(Vector3 platformCenter)
     {
-        if (spawnEdgeDustPS != null)
+        if (spawnEdgeDustPS == null) return;
+
+        float halfDim = platformDimension * 0.5f;
+        float baseY = -0.20f; // Directly at downside bottom edge of the platform
+        int particlesPerEdge = Mathf.Max(1, spawnEdgeParticleCount / 4);
+
+        // Emit along all 4 bottom edges shooting strictly OUTWARD horizontally
+        for (int i = 0; i < particlesPerEdge; i++)
         {
-            // Position at base of platform (Y = 0) so dust shoots up and outward from under the perimeter!
-            spawnEdgeDustPS.transform.position = new Vector3(platformCenter.x, 0.05f, platformCenter.z);
-            spawnEdgeDustPS.Emit(spawnEdgeParticleCount);
+            float t = (float)i / particlesPerEdge;
+            float lerpVal = Mathf.Lerp(-halfDim, halfDim, t);
+
+            // North Edge (+Z) -> Shoots +Z
+            EmitEdgeParticle(new Vector3(platformCenter.x + lerpVal, baseY, platformCenter.z + halfDim), new Vector3(0f, 0.1f, spawnEdgeParticleSpeed));
+
+            // South Edge (-Z) -> Shoots -Z
+            EmitEdgeParticle(new Vector3(platformCenter.x + lerpVal, baseY, platformCenter.z - halfDim), new Vector3(0f, 0.1f, -spawnEdgeParticleSpeed));
+
+            // East Edge (+X) -> Shoots +X
+            EmitEdgeParticle(new Vector3(platformCenter.x + halfDim, baseY, platformCenter.z + lerpVal), new Vector3(spawnEdgeParticleSpeed, 0.1f, 0f));
+
+            // West Edge (-X) -> Shoots -X
+            EmitEdgeParticle(new Vector3(platformCenter.x - halfDim, baseY, platformCenter.z + lerpVal), new Vector3(-spawnEdgeParticleSpeed, 0.1f, 0f));
         }
+    }
+
+    private void EmitEdgeParticle(Vector3 pos, Vector3 velocity)
+    {
+        ParticleSystem.EmitParams ep = new ParticleSystem.EmitParams();
+        ep.position = pos;
+        ep.velocity = velocity + new Vector3(Random.Range(-0.2f, 0.2f), Random.Range(0f, 0.3f), Random.Range(-0.2f, 0.2f));
+        ep.startColor = spawnEdgeColor;
+        ep.startSize = spawnEdgeParticleSize * Random.Range(0.85f, 1.25f);
+        ep.startLifetime = spawnEdgeParticleLifetime * Random.Range(0.85f, 1.15f);
+
+        spawnEdgeDustPS.Emit(ep, 1);
     }
 
     public void SpawnLandingDust(Vector3 position)
