@@ -2,14 +2,13 @@
 
 /// <summary>
 /// Cartoon dust puffs for Doofus:
-/// - Attached as child at Doofus's base with upward Hemisphere emission
-/// - Shoots particles strictly UPWARDS and OUTWARDS so they float above platforms
-/// - Guaranteed URP particle rendering
+/// - Uses Custom/AlwaysOnTopParticle shader with ZTest Always (100% immune to tile clipping!)
+/// - Spawns crisp cartoon smoke puffs right behind Doofus as he runs
 /// </summary>
 public class DoofusLocomotionVFX : MonoBehaviour
 {
     [Header("Locomotion Tuning")]
-    [SerializeField] private float stepInterval = 0.15f;
+    [SerializeField] private float stepInterval = 0.14f;
 
     private DoofusController controller;
     private Rigidbody rb;
@@ -28,57 +27,49 @@ public class DoofusLocomotionVFX : MonoBehaviour
 
     private void BuildParticleSystems()
     {
-        // Try getting Unity's default particle material or create a clean URP Particle Unlit material
-        Material particleMat = null;
-        Shader pShader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
-        if (pShader == null) pShader = Shader.Find("Particles/Standard Unlit");
-        if (pShader == null) pShader = Shader.Find("Mobile/Particles/Additive");
-        if (pShader == null) pShader = Shader.Find("Sprites/Default");
+        Shader topShader = Shader.Find("Custom/AlwaysOnTopParticle");
+        if (topShader == null) topShader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+        if (topShader == null) topShader = Shader.Find("Sprites/Default");
 
-        if (pShader != null)
-        {
-            particleMat = new Material(pShader);
-        }
+        Material topMat = new Material(topShader);
 
-        // 1. Running Footstep Dust (Hemisphere shooting upward/backward)
+        // 1. Running Footstep Dust
         GameObject runObj = new GameObject("RunningDust_Emitter");
         runObj.transform.SetParent(transform, false);
-        runObj.transform.localPosition = new Vector3(0f, 0.20f, -0.35f); // 20cm above base, behind player
-        runObj.transform.localRotation = Quaternion.Euler(-60f, 0f, 0f); // Tilted up & back
+        runObj.transform.localPosition = new Vector3(0f, 0.35f, -0.30f);
 
         runningDustPS = runObj.AddComponent<ParticleSystem>();
         var runRenderer = runObj.GetComponent<ParticleSystemRenderer>();
-        if (runRenderer != null && particleMat != null)
+        if (runRenderer != null)
         {
-            runRenderer.material = particleMat;
+            runRenderer.material = topMat;
             runRenderer.renderMode = ParticleSystemRenderMode.Billboard;
-            runRenderer.sortingOrder = 20;
+            runRenderer.sortingOrder = 100; // Ultra priority
         }
 
         var main = runningDustPS.main;
         main.playOnAwake = false;
         main.loop = false;
         main.maxParticles = 60;
-        main.startLifetime = 0.35f;
-        main.startSize = 0.45f;
-        main.startSpeed = 1.6f;
+        main.startLifetime = 0.30f;
+        main.startSize = 0.40f;
+        main.startSpeed = 1.0f;
         main.startColor = new Color(1f, 1f, 1f, 0.85f);
-        main.simulationSpace = ParticleSystemSimulationSpace.World; // World space trails
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
 
         var emission = runningDustPS.emission;
         emission.rateOverTime = 0;
 
         var shape = runningDustPS.shape;
         shape.enabled = true;
-        shape.shapeType = ParticleSystemShapeType.Cone;
-        shape.angle = 20f;
-        shape.radius = 0.15f;
+        shape.shapeType = ParticleSystemShapeType.Sphere;
+        shape.radius = 0.2f;
 
         var sizeOverLifetime = runningDustPS.sizeOverLifetime;
         sizeOverLifetime.enabled = true;
         AnimationCurve sizeCurve = new AnimationCurve();
         sizeCurve.AddKey(0f, 0.5f);
-        sizeCurve.AddKey(0.3f, 1.3f);
+        sizeCurve.AddKey(0.25f, 1.3f);
         sizeCurve.AddKey(1f, 0f);
         sizeOverLifetime.size = new ParticleSystem.MinMaxCurve(1f, sizeCurve);
 
@@ -91,39 +82,32 @@ public class DoofusLocomotionVFX : MonoBehaviour
         );
         colorOverLifetime.color = grad;
 
-        // 2. Skid Brake Dust (Wide upward fan)
+        // 2. Skid Brake Dust
         GameObject skidObj = new GameObject("SkidDust_Emitter");
         skidObj.transform.SetParent(transform, false);
-        skidObj.transform.localPosition = new Vector3(0f, 0.20f, 0f);
-        skidObj.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f); // Pointing straight up!
+        skidObj.transform.localPosition = new Vector3(0f, 0.35f, 0f);
 
         skidDustPS = skidObj.AddComponent<ParticleSystem>();
         var skidRenderer = skidObj.GetComponent<ParticleSystemRenderer>();
-        if (skidRenderer != null && particleMat != null)
+        if (skidRenderer != null)
         {
-            skidRenderer.material = particleMat;
+            skidRenderer.material = topMat;
             skidRenderer.renderMode = ParticleSystemRenderMode.Billboard;
-            skidRenderer.sortingOrder = 20;
+            skidRenderer.sortingOrder = 100;
         }
 
         var skidMain = skidDustPS.main;
         skidMain.playOnAwake = false;
         skidMain.loop = false;
         skidMain.maxParticles = 60;
-        skidMain.startLifetime = 0.45f;
-        skidMain.startSize = 0.60f;
-        skidMain.startSpeed = 2.5f;
+        skidMain.startLifetime = 0.40f;
+        skidMain.startSize = 0.55f;
+        skidMain.startSpeed = 1.8f;
         skidMain.startColor = new Color(1f, 1f, 1f, 0.90f);
         skidMain.simulationSpace = ParticleSystemSimulationSpace.World;
 
         var skidEmission = skidDustPS.emission;
         skidEmission.rateOverTime = 0;
-
-        var skidShape = skidDustPS.shape;
-        skidShape.enabled = true;
-        skidShape.shapeType = ParticleSystemShapeType.Cone;
-        skidShape.angle = 45f;
-        skidShape.radius = 0.3f;
 
         var skidSize = skidDustPS.sizeOverLifetime;
         skidSize.enabled = true;
@@ -158,9 +142,9 @@ public class DoofusLocomotionVFX : MonoBehaviour
 
         // Skid brake detection
         float velDrop = (lastVelocity - currentVel).magnitude;
-        if (velDrop > 2.8f && lastVelocity.sqrMagnitude > 1.5f)
+        if (velDrop > 2.6f && lastVelocity.sqrMagnitude > 1.2f)
         {
-            if (skidDustPS != null) skidDustPS.Emit(12);
+            if (skidDustPS != null) skidDustPS.Emit(10);
         }
 
         lastVelocity = currentVel;
