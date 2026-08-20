@@ -2,11 +2,11 @@
 using UnityEngine;
 
 /// <summary>
-/// Controls an individual platform:
-/// - Random countdown lifetime (frozen until Game Starts)
-/// - Diegetic on-platform 3D World-Space countdown timers (Destroy & Next Spawn)
-/// - Visual color transition (green -> yellow -> red)
-/// - Player landing detection and destruction VFX trigger.
+/// Controls an individual pulpit platform:
+/// - Random countdown lifetime (synced with game state)
+/// - Robust URP material color lerp (supports both _BaseColor and _Color)
+/// - Single on-tile diegetic timer display at bottom-left corner
+/// - Panic pulse effect when timer < 1.5s
 /// </summary>
 public class Pulpit : MonoBehaviour
 {
@@ -16,9 +16,8 @@ public class Pulpit : MonoBehaviour
     [SerializeField] private Color warningColor = new Color(0.95f, 0.77f, 0.06f); // Yellow Warning
     [SerializeField] private Color criticalColor = new Color(0.91f, 0.3f, 0.24f); // Red Critical
 
-    [Header("On-Tile 3D Text Displays (Auto-Created if Null)")]
-    [SerializeField] private TextMeshPro destroyTimerText;
-    [SerializeField] private TextMeshPro spawnTimerText;
+    [Header("On-Tile Timer Display (Assigned in Prefab)")]
+    [SerializeField] private TextMeshPro timerText;
 
     private float lifetime;
     private float remainingTime;
@@ -26,6 +25,8 @@ public class Pulpit : MonoBehaviour
     private bool hasPlayerVisited = false;
     private bool isTimerActive = false;
     private Material runtimeMaterial;
+    private static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
+    private static readonly int ColorID = Shader.PropertyToID("_Color");
 
     private void Awake()
     {
@@ -35,7 +36,9 @@ public class Pulpit : MonoBehaviour
         if (platformRenderer != null)
             runtimeMaterial = platformRenderer.material;
 
-        CreateWorldSpaceTimerUI();
+        // Auto-find timer text if child exists and not assigned
+        if (timerText == null)
+            timerText = GetComponentInChildren<TextMeshPro>();
     }
 
     private void OnEnable()
@@ -52,14 +55,10 @@ public class Pulpit : MonoBehaviour
     {
         InitializeLifetime();
 
-        // If game is already actively playing, start countdown immediately
+        // Check if game is already active
         if (GameManager.Instance != null && GameManager.Instance.IsPlaying)
         {
             isTimerActive = true;
-        }
-        else
-        {
-            isTimerActive = false;
         }
     }
 
@@ -86,6 +85,12 @@ public class Pulpit : MonoBehaviour
     {
         if (isDestroyed) return;
 
+        // Failsafe: Sync with GameManager state if event was missed
+        if (!isTimerActive && GameManager.Instance != null && GameManager.Instance.IsPlaying)
+        {
+            isTimerActive = true;
+        }
+
         // Freeze countdown when on start menu
         if (!isTimerActive)
         {
@@ -107,6 +112,10 @@ public class Pulpit : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Smoothly transitions platform color from Green to Yellow to Red.
+    /// Supports both URP Lit (_BaseColor) and Standard (_Color).
+    /// </summary>
     private void UpdateVisuals(float normalizedTime)
     {
         if (runtimeMaterial == null) return;
@@ -123,81 +132,40 @@ public class Pulpit : MonoBehaviour
             targetColor = Color.Lerp(warningColor, criticalColor, t);
         }
 
+        // Set color for URP Lit shader
+        if (runtimeMaterial.HasProperty(BaseColorID))
+            runtimeMaterial.SetColor(BaseColorID, targetColor);
+
+        // Fallback for standard shaders
+        if (runtimeMaterial.HasProperty(ColorID))
+            runtimeMaterial.SetColor(ColorID, targetColor);
+
         runtimeMaterial.color = targetColor;
     }
 
     private void UpdateTileText(float timeRemaining)
     {
-        if (destroyTimerText != null)
-        {
-            float displaySec = Mathf.Max(0f, timeRemaining);
-            destroyTimerText.text = $"{displaySec:0.00}";
+        if (timerText == null) return;
 
-            // Match text color to platform urgency
-            if (displaySec < 1.5f)
-            {
-                destroyTimerText.color = Color.white;
-                float pulse = 1f + Mathf.Sin(Time.time * 20f) * 0.2f;
-                destroyTimerText.transform.localScale = Vector3.one * pulse;
-            }
-            else
-            {
-                destroyTimerText.color = Color.white;
-                destroyTimerText.transform.localScale = Vector3.one;
-            }
+        float displaySec = Mathf.Max(0f, timeRemaining);
+        timerText.text = $"{displaySec:0.00}";
+
+        // Urgent pulse & color change when time is low (< 1.5s)
+        if (displaySec < 1.5f)
+        {
+            float pulse = 1f + Mathf.Sin(Time.time * 24f) * 0.15f;
+            timerText.transform.localScale = Vector3.one * pulse;
+            timerText.color = new Color(1f, 0.3f, 0.3f, 1f); // Soft Red glow
         }
-
-        if (spawnTimerText != null && PulpitManager.Instance != null)
+        else if (displaySec < 2.5f)
         {
-            float spawnTimeLeft = PulpitManager.Instance.RemainingSpawnTime;
-            if (spawnTimeLeft > 0f)
-            {
-                spawnTimerText.text = $"{spawnTimeLeft:0.00}";
-            }
-            else
-            {
-                spawnTimerText.text = "";
-            }
+            timerText.transform.localScale = Vector3.one;
+            timerText.color = new Color(1f, 0.9f, 0.4f, 1f); // Soft Yellow
         }
-    }
-
-    /// <summary>
-    /// Programmatically generates crisp, stylized 3D TextMeshPro floating timers on the tile surface.
-    /// </summary>
-    private void CreateWorldSpaceTimerUI()
-    {
-        if (destroyTimerText != null && spawnTimerText != null) return;
-
-        // Destroy Timer (Left side of platform)
-        if (destroyTimerText == null)
+        else
         {
-            GameObject destroyObj = new GameObject("DestroyTimer_3DText");
-            destroyObj.transform.SetParent(transform, false);
-            destroyObj.transform.localPosition = new Vector3(-0.35f, 0.55f, -0.38f);
-            destroyObj.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-
-            destroyTimerText = destroyObj.AddComponent<TextMeshPro>();
-            destroyTimerText.fontSize = 7;
-            destroyTimerText.fontStyle = FontStyles.Bold;
-            destroyTimerText.alignment = TextAlignmentOptions.Center;
-            destroyTimerText.color = Color.white;
-            destroyTimerText.text = "4.50";
-        }
-
-        // Next Spawn Timer (Right side of platform)
-        if (spawnTimerText == null)
-        {
-            GameObject spawnObj = new GameObject("SpawnTimer_3DText");
-            spawnObj.transform.SetParent(transform, false);
-            spawnObj.transform.localPosition = new Vector3(0.35f, 0.55f, -0.38f);
-            spawnObj.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-
-            spawnTimerText = spawnObj.AddComponent<TextMeshPro>();
-            spawnTimerText.fontSize = 7;
-            spawnTimerText.fontStyle = FontStyles.Bold;
-            spawnTimerText.alignment = TextAlignmentOptions.Center;
-            spawnTimerText.color = new Color(1f, 1f, 1f, 0.85f);
-            spawnTimerText.text = "2.50";
+            timerText.transform.localScale = Vector3.one;
+            timerText.color = Color.white;
         }
     }
 
