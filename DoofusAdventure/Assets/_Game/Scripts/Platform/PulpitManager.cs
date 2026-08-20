@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Manages spawning and positioning of Pulpit platforms.
-/// Pauses spawning during Rewind and re-synchronizes adjacent platforms on resume.
+/// Manages spawning and positioning of Pulpit platforms using the global deterministic timeline.
 /// </summary>
 public class PulpitManager : MonoBehaviour
 {
@@ -19,7 +18,7 @@ public class PulpitManager : MonoBehaviour
     private readonly List<Pulpit> activePulpits = new List<Pulpit>();
     private Vector3 currentPulpitPosition = Vector3.zero;
     private Vector3 previousPulpitPosition = Vector3.zero;
-    private Coroutine spawnRoutine;
+    private float nextSpawnWorldTime = 0f;
 
     private readonly Vector3[] adjacentDirections = new Vector3[]
     {
@@ -43,9 +42,8 @@ public class PulpitManager : MonoBehaviour
     {
         GameEvents.OnGameStart += StartGameSpawning;
         GameEvents.OnGameRestart += RestartSpawning;
-        GameEvents.OnGameOver += StopSpawning;
+        GameEvents.OnGameOver += ClearAllPulpits;
         GameEvents.OnReturnToLobby += ClearAllPulpits;
-        GameEvents.OnRewindStart += HandleRewindStart;
         GameEvents.OnRewindComplete += HandleRewindComplete;
     }
 
@@ -53,9 +51,8 @@ public class PulpitManager : MonoBehaviour
     {
         GameEvents.OnGameStart -= StartGameSpawning;
         GameEvents.OnGameRestart -= RestartSpawning;
-        GameEvents.OnGameOver -= StopSpawning;
+        GameEvents.OnGameOver -= ClearAllPulpits;
         GameEvents.OnReturnToLobby -= ClearAllPulpits;
-        GameEvents.OnRewindStart -= HandleRewindStart;
         GameEvents.OnRewindComplete -= HandleRewindComplete;
     }
 
@@ -67,21 +64,45 @@ public class PulpitManager : MonoBehaviour
         }
         else
         {
-            SpawnPulpitAt(Vector3.zero);
+            SpawnPulpitAt(Vector3.zero, 0f);
+        }
+    }
+
+    private void Update()
+    {
+        if (GameManager.Instance == null || !GameManager.Instance.IsPlaying) return;
+        if (RewindManager.Instance != null && RewindManager.Instance.IsRewinding) return;
+
+        float worldTime = RewindManager.Instance != null ? RewindManager.Instance.WorldTime : Time.time;
+        float spawnDelay = GameConfig.Instance != null ? GameConfig.Instance.SpawnTime : 2.5f;
+
+        // Clean null and destroyed references
+        activePulpits.RemoveAll(item => item == null || item.IsDestroyed);
+
+        // Spawn next platform when world time reaches next scheduled spawn
+        if (worldTime >= nextSpawnWorldTime && activePulpits.Count < 2)
+        {
+            Vector3 nextPos = GetNextAdjacentPosition();
+            previousPulpitPosition = currentPulpitPosition;
+            currentPulpitPosition = nextPos;
+
+            SpawnPulpitAt(currentPulpitPosition, worldTime);
+            nextSpawnWorldTime = worldTime + spawnDelay;
         }
     }
 
     public void StartGameSpawning()
     {
-        StopSpawning();
         ClearAllPulpits();
 
         currentPulpitPosition = Vector3.zero;
         previousPulpitPosition = Vector3.zero;
 
-        SpawnPulpitAt(currentPulpitPosition);
+        float worldTime = RewindManager.Instance != null ? RewindManager.Instance.WorldTime : 0f;
+        float spawnDelay = GameConfig.Instance != null ? GameConfig.Instance.SpawnTime : 2.5f;
 
-        spawnRoutine = StartCoroutine(SpawnLoopCoroutine());
+        SpawnPulpitAt(currentPulpitPosition, worldTime);
+        nextSpawnWorldTime = worldTime + spawnDelay;
     }
 
     public void RestartSpawning()
@@ -89,41 +110,30 @@ public class PulpitManager : MonoBehaviour
         StartGameSpawning();
     }
 
-    public void StopSpawning()
-    {
-        if (spawnRoutine != null)
-        {
-            StopCoroutine(spawnRoutine);
-            spawnRoutine = null;
-        }
-    }
-
-    private void HandleRewindStart()
-    {
-        StopSpawning();
-    }
-
     private void HandleRewindComplete()
     {
-        // Re-synchronize active platforms list
         RefreshActivePulpitsList();
 
-        // Find the platform Doofus is currently standing on
-        Pulpit playerPulpit = GetClosestAlivePulpit(Vector3.zero);
+        float worldTime = RewindManager.Instance != null ? RewindManager.Instance.WorldTime : 0f;
+        float spawnDelay = GameConfig.Instance != null ? GameConfig.Instance.SpawnTime : 2.5f;
+
+        // Identify the closest platform Doofus is standing on
         DoofusController doofus = FindAnyObjectByType<DoofusController>();
-        if (doofus != null)
-        {
-            playerPulpit = GetClosestAlivePulpit(doofus.transform.position);
-        }
+        Vector3 playerPos = doofus != null ? doofus.transform.position : Vector3.zero;
+        Pulpit closest = GetClosestAlivePulpit(playerPos);
 
-        if (playerPulpit != null)
+        if (closest != null)
         {
-            currentPulpitPosition = playerPulpit.transform.position;
+            currentPulpitPosition = closest.transform.position;
+            // Schedule next spawn naturally based on how long this platform has lived
+            float timeLived = worldTime - closest.SpawnWorldTime;
+            float remainingUntilSpawn = Mathf.Max(0.5f, spawnDelay - timeLived);
+            nextSpawnWorldTime = worldTime + remainingUntilSpawn;
         }
-
-        // Resume continuous spawn loop smoothly
-        StopSpawning();
-        spawnRoutine = StartCoroutine(SpawnLoopCoroutine());
+        else
+        {
+            nextSpawnWorldTime = worldTime + spawnDelay;
+        }
     }
 
     private void RefreshActivePulpitsList()
@@ -160,31 +170,7 @@ public class PulpitManager : MonoBehaviour
         return closest;
     }
 
-    private IEnumerator SpawnLoopCoroutine()
-    {
-        while (true)
-        {
-            float spawnDelay = GameConfig.Instance != null ? GameConfig.Instance.SpawnTime : 2.5f;
-            yield return new WaitForSeconds(spawnDelay);
-
-            activePulpits.RemoveAll(item => item == null || item.IsDestroyed);
-
-            while (activePulpits.Count >= 2)
-            {
-                activePulpits.RemoveAll(item => item == null || item.IsDestroyed);
-                yield return null;
-            }
-
-            Vector3 nextPos = GetNextAdjacentPosition();
-
-            previousPulpitPosition = currentPulpitPosition;
-            currentPulpitPosition = nextPos;
-
-            SpawnPulpitAt(currentPulpitPosition);
-        }
-    }
-
-    private void SpawnPulpitAt(Vector3 position)
+    private void SpawnPulpitAt(Vector3 position, float spawnTime)
     {
         if (pulpitPrefab == null)
         {
@@ -198,6 +184,7 @@ public class PulpitManager : MonoBehaviour
         Pulpit pulpitScript = newPulpitObj.GetComponent<Pulpit>();
         if (pulpitScript != null)
         {
+            pulpitScript.InitializeTimeline(spawnTime);
             activePulpits.Add(pulpitScript);
         }
 
@@ -246,7 +233,6 @@ public class PulpitManager : MonoBehaviour
 
     public void ClearAllPulpits()
     {
-        StopSpawning();
         foreach (Pulpit pulpit in activePulpits)
         {
             if (pulpit != null)

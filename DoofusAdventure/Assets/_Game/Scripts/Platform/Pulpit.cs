@@ -1,12 +1,12 @@
-﻿using System.Collections.Generic;
-using TMPro;
+﻿using TMPro;
 using UnityEngine;
 
 /// <summary>
-/// Controls an individual pulpit platform:
-/// - Records rolling snapshot history of lifetime and destruction state
-/// - Plays in reverse during Prince of Persia Time Rewind
-/// - Automatically un-spawns (dissolves) if rewound past its moment of creation!
+/// Controls an individual pulpit platform using a deterministic mathematical timeline:
+/// State at time t = f(worldTime, spawnTime, destroyTime).
+/// - If t < spawnTime: Platform was born in the future -> Un-spawns / self-destructs!
+/// - If spawnTime <= t < destroyTime: Platform is ALIVE with remainingTime = destroyTime - t!
+/// - If t >= destroyTime: Platform is collapsed.
 /// </summary>
 public class Pulpit : MonoBehaviour
 {
@@ -20,30 +20,18 @@ public class Pulpit : MonoBehaviour
     [Header("On-Tile Timer Text")]
     [SerializeField] private TextMeshPro timerText;
 
-    public struct PulpitSnapshot
-    {
-        public float remainingTime;
-        public bool isDestroyed;
-
-        public PulpitSnapshot(float time, bool destroyed)
-        {
-            remainingTime = time;
-            isDestroyed = destroyed;
-        }
-    }
-
-    private readonly LinkedList<PulpitSnapshot> historyBuffer = new LinkedList<PulpitSnapshot>();
     private float lifetime = 5f;
+    private float spawnWorldTime = 0f;
+    private float destroyWorldTime = 5f;
     private float remainingTime = 5f;
     private bool isDestroyed = false;
-    private bool isRewinding = false;
     private bool hasPlayerVisited = false;
     private Material runtimeMaterial;
-    private float timeSinceDestroyed = 0f;
-    private int initialSnapshotCountAtRewindStart = 0;
+    private bool isInitialized = false;
 
     public bool IsDestroyed => isDestroyed;
     public float RemainingTime => remainingTime;
+    public float SpawnWorldTime => spawnWorldTime;
 
     private void Awake()
     {
@@ -62,135 +50,68 @@ public class Pulpit : MonoBehaviour
 
     private void Start()
     {
-        InitializeLifetime();
+        if (!isInitialized)
+        {
+            InitializeTimeline(RewindManager.Instance != null ? RewindManager.Instance.WorldTime : 0f);
+        }
     }
 
-    private void OnEnable()
+    public void InitializeTimeline(float currentWorldTime)
     {
-        GameEvents.OnRewindStart += HandleRewindStart;
-        GameEvents.OnRewindComplete += HandleRewindComplete;
-    }
-
-    private void OnDisable()
-    {
-        GameEvents.OnRewindStart -= HandleRewindStart;
-        GameEvents.OnRewindComplete -= HandleRewindComplete;
-    }
-
-    public void InitializeLifetime()
-    {
+        isInitialized = true;
         float minTime = GameConfig.Instance != null ? GameConfig.Instance.MinDestroyTime : 5f;
         float maxTime = GameConfig.Instance != null ? GameConfig.Instance.MaxDestroyTime : 5f;
 
         lifetime = (minTime == maxTime) ? minTime : Random.Range(minTime, maxTime);
+        spawnWorldTime = currentWorldTime;
+        destroyWorldTime = spawnWorldTime + lifetime;
         remainingTime = lifetime;
         isDestroyed = false;
         hasPlayerVisited = false;
-        timeSinceDestroyed = 0f;
 
         SetPlatformVisibility(true);
         UpdateVisuals(1f);
         UpdateTileText(remainingTime);
     }
 
-    private void FixedUpdate()
-    {
-        // 1. Record history during gameplay
-        if (!isRewinding && GameManager.Instance != null && GameManager.Instance.IsPlaying)
-        {
-            historyBuffer.AddLast(new PulpitSnapshot(remainingTime, isDestroyed));
-
-            int maxSnapshots = Mathf.RoundToInt(4.0f / Time.fixedDeltaTime);
-            while (historyBuffer.Count > maxSnapshots)
-            {
-                historyBuffer.RemoveFirst();
-            }
-        }
-        // 2. Play history in reverse during Time Rewind
-        else if (isRewinding)
-        {
-            RewindStep();
-        }
-    }
-
     private void Update()
     {
-        if (isRewinding) return;
+        float currentWorldTime = RewindManager.Instance != null ? RewindManager.Instance.WorldTime : 0f;
 
-        if (isDestroyed)
+        // 1. If we rewound past the moment this platform was spawned -> It does not exist yet in the past!
+        if (currentWorldTime < spawnWorldTime - 0.05f && spawnWorldTime > 0.1f)
         {
-            timeSinceDestroyed += Time.deltaTime;
-            if (timeSinceDestroyed > 6.0f)
+            Destroy(gameObject);
+            return;
+        }
+
+        // 2. If current time is past expiration -> Collapse platform
+        if (currentWorldTime >= destroyWorldTime)
+        {
+            if (!isDestroyed)
             {
-                Destroy(gameObject);
+                CollapsePulpit();
             }
             return;
         }
 
-        if (GameManager.Instance != null && !GameManager.Instance.IsPlaying)
+        // 3. Platform is ALIVE in the current slice of time!
+        if (isDestroyed)
         {
-            UpdateTileText(remainingTime);
-            return;
+            ResurrectPulpit();
         }
 
-        remainingTime -= Time.deltaTime;
+        remainingTime = Mathf.Clamp(destroyWorldTime - currentWorldTime, 0f, lifetime);
         float normalizedTime = Mathf.Clamp01(remainingTime / lifetime);
 
         GameEvents.TriggerPulpitTimerTick(normalizedTime);
-
-        UpdateVisuals(normalizedTime);
-        UpdateTileText(remainingTime);
-
-        if (remainingTime <= 0f)
-        {
-            CollapsePulpit();
-        }
-    }
-
-    public void RewindStep()
-    {
-        // If this platform was spawned AFTER the rewind point, un-spawn it when buffer empties!
-        if (historyBuffer.Count == 0)
-        {
-            if (initialSnapshotCountAtRewindStart < 35 && transform.position != Vector3.zero)
-            {
-                // This platform was born in the future! Un-spawn it.
-                Destroy(gameObject);
-                return;
-            }
-            return;
-        }
-
-        int skip = 2;
-        for (int i = 0; i < skip && historyBuffer.Count > 0; i++)
-        {
-            PulpitSnapshot snap = historyBuffer.Last.Value;
-            historyBuffer.RemoveLast();
-
-            remainingTime = snap.remainingTime;
-
-            if (!snap.isDestroyed && isDestroyed)
-            {
-                ResurrectPulpit();
-            }
-            else if (snap.isDestroyed && !isDestroyed)
-            {
-                SetPlatformVisibility(false);
-                isDestroyed = true;
-            }
-        }
-
-        float normalizedTime = Mathf.Clamp01(remainingTime / lifetime);
         UpdateVisuals(normalizedTime);
         UpdateTileText(remainingTime);
     }
 
     private void CollapsePulpit()
     {
-        if (isDestroyed) return;
         isDestroyed = true;
-        timeSinceDestroyed = 0f;
-
         SetPlatformVisibility(false);
         GameEvents.TriggerPulpitDestroyed(transform.position);
     }
@@ -198,7 +119,6 @@ public class Pulpit : MonoBehaviour
     private void ResurrectPulpit()
     {
         isDestroyed = false;
-        timeSinceDestroyed = 0f;
         SetPlatformVisibility(true);
     }
 
@@ -256,21 +176,6 @@ public class Pulpit : MonoBehaviour
         else
         {
             timerText.color = Color.white;
-        }
-    }
-
-    private void HandleRewindStart()
-    {
-        isRewinding = true;
-        initialSnapshotCountAtRewindStart = historyBuffer.Count;
-    }
-
-    private void HandleRewindComplete()
-    {
-        isRewinding = false;
-        if (!isDestroyed)
-        {
-            SetPlatformVisibility(true);
         }
     }
 

@@ -4,9 +4,9 @@ using UnityEngine;
 
 /// <summary>
 /// Prince of Persia / Braid style Time Rewind Engine:
-/// - High-frequency circular snapshot recorder of player state
-/// - Rewinds player motion arc, platform timers, and un-shatters collapsed platforms
-/// - Smooth landing with zero floating stutter
+/// - Maintains a single deterministic Global WorldTime clock
+/// - Rewinds player motion, platform lifetimes, and spawn schedules in perfect mathematical sync
+/// - Automatically un-spawns future platforms and resurrects past platforms
 /// </summary>
 public class RewindManager : MonoBehaviour
 {
@@ -30,19 +30,23 @@ public class RewindManager : MonoBehaviour
     {
         public Vector3 position;
         public Quaternion rotation;
+        public float worldTime;
 
-        public PlayerSnapshot(Vector3 pos, Quaternion rot)
+        public PlayerSnapshot(Vector3 pos, Quaternion rot, float time)
         {
             position = pos;
             rotation = rot;
+            worldTime = time;
         }
     }
 
     private readonly LinkedList<PlayerSnapshot> snapshotBuffer = new LinkedList<PlayerSnapshot>();
+    private float worldTime = 0f;
     private int currentCharges;
     private bool isRewinding = false;
     private Coroutine rewindRoutine;
 
+    public float WorldTime => worldTime;
     public bool IsRewinding => isRewinding;
     public bool CanRewind => currentCharges > 0 && !isRewinding && snapshotBuffer.Count > 15;
     public int CurrentCharges => currentCharges;
@@ -91,6 +95,7 @@ public class RewindManager : MonoBehaviour
 
     private void HandleGameStart()
     {
+        worldTime = 0f;
         ResetCharges();
         snapshotBuffer.Clear();
         isRewinding = false;
@@ -108,13 +113,16 @@ public class RewindManager : MonoBehaviour
 
         if (GameManager.Instance != null && !GameManager.Instance.IsPlaying) return;
 
+        // Advance global world clock
+        worldTime += Time.fixedDeltaTime;
+
         if (playerTransform == null)
         {
             FindPlayerReferences();
             if (playerTransform == null) return;
         }
 
-        snapshotBuffer.AddLast(new PlayerSnapshot(playerTransform.position, playerTransform.rotation));
+        snapshotBuffer.AddLast(new PlayerSnapshot(playerTransform.position, playerTransform.rotation, worldTime));
 
         int maxSnapshots = Mathf.RoundToInt(maxRecordSeconds / Time.fixedDeltaTime);
         while (snapshotBuffer.Count > maxSnapshots)
@@ -123,9 +131,6 @@ public class RewindManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Initiates reverse time playback across player, platforms, and timers.
-    /// </summary>
     public void TriggerRewind()
     {
         if (!CanRewind) return;
@@ -148,11 +153,13 @@ public class RewindManager : MonoBehaviour
             playerRigidbody.linearVelocity = Vector3.zero;
         }
 
-        // Rewind playback loop
         while (snapshotBuffer.Count > 0)
         {
             PlayerSnapshot snapshot = snapshotBuffer.Last.Value;
             snapshotBuffer.RemoveLast();
+
+            // Rewind global world time to match exact historical frame!
+            worldTime = snapshot.worldTime;
 
             if (playerTransform != null)
             {
@@ -169,7 +176,6 @@ public class RewindManager : MonoBehaviour
             yield return new WaitForFixedUpdate();
         }
 
-        // Seamless landing back on the platform
         if (playerRigidbody != null)
         {
             playerRigidbody.isKinematic = false;
