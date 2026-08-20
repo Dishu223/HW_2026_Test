@@ -4,8 +4,9 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Controls the in-game Heads-Up Display (HUD):
-/// live score counter with pop animations, platform countdown bar, and high score display.
+/// Controls in-game HUD displays:
+/// live score counter with punch bounce animation and platform countdown bar.
+/// (Panel visibility is strictly managed by UIManager).
 /// </summary>
 public class HUDController : MonoBehaviour
 {
@@ -15,15 +16,11 @@ public class HUDController : MonoBehaviour
 
     [Header("Platform Timer Display")]
     [SerializeField] private Image timerFillBar;
-    [SerializeField] private TextMeshProUGUI timerSecondsText;
 
     [Header("Timer Colors")]
     [SerializeField] private Color timerFullColor = new Color(0.18f, 0.8f, 0.44f);
     [SerializeField] private Color timerWarnColor = new Color(0.95f, 0.77f, 0.06f);
     [SerializeField] private Color timerCritColor = new Color(0.91f, 0.3f, 0.24f);
-
-    [Header("UI Canvas Group")]
-    [SerializeField] private CanvasGroup hudCanvasGroup;
 
     private Coroutine scorePunchRoutine;
 
@@ -31,21 +28,16 @@ public class HUDController : MonoBehaviour
     {
         GameEvents.OnScoreChanged += UpdateScoreDisplay;
         GameEvents.OnPulpitTimerTick += UpdateTimerDisplay;
-        GameEvents.OnGameStart += ShowHUD;
-        GameEvents.OnGameOver += HideHUD;
     }
 
     private void OnDisable()
     {
         GameEvents.OnScoreChanged -= UpdateScoreDisplay;
         GameEvents.OnPulpitTimerTick -= UpdateTimerDisplay;
-        GameEvents.OnGameStart -= ShowHUD;
-        GameEvents.OnGameOver -= HideHUD;
     }
 
     private void Start()
     {
-        // Initial setup
         UpdateScoreDisplay(0);
         if (ScoreManager.Instance != null && highScoreText != null)
         {
@@ -59,7 +51,6 @@ public class HUDController : MonoBehaviour
         {
             scoreText.text = $"PULPITS: {newScore}";
 
-            // Trigger a satisfying punch/bounce animation on score text
             if (gameObject.activeInHierarchy)
             {
                 if (scorePunchRoutine != null) StopCoroutine(scorePunchRoutine);
@@ -79,7 +70,6 @@ public class HUDController : MonoBehaviour
         {
             timerFillBar.fillAmount = normalizedTime;
 
-            // Color shift on timer bar
             if (normalizedTime > 0.5f)
             {
                 float t = (1f - normalizedTime) * 2f;
@@ -99,7 +89,6 @@ public class HUDController : MonoBehaviour
         Vector3 targetScale = Vector3.one * punchScale;
         float halfDuration = duration / 2f;
 
-        // Scale Up
         float elapsed = 0f;
         while (elapsed < halfDuration)
         {
@@ -108,7 +97,6 @@ public class HUDController : MonoBehaviour
             yield return null;
         }
 
-        // Scale Back Down
         elapsed = 0f;
         while (elapsed < halfDuration)
         {
@@ -118,25 +106,5 @@ public class HUDController : MonoBehaviour
         }
 
         target.localScale = initialScale;
-    }
-
-    public void ShowHUD()
-    {
-        if (hudCanvasGroup != null)
-        {
-            hudCanvasGroup.alpha = 1f;
-            hudCanvasGroup.interactable = true;
-            hudCanvasGroup.blocksRaycasts = true;
-        }
-    }
-
-    public void HideHUD()
-    {
-        if (hudCanvasGroup != null)
-        {
-            hudCanvasGroup.alpha = 0f;
-            hudCanvasGroup.interactable = false;
-            hudCanvasGroup.blocksRaycasts = false;
-        }
     }
 }

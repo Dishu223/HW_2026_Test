@@ -33,11 +33,13 @@ public class GameManager : MonoBehaviour
 
         Instance = this;
         DontDestroyOnLoad(gameObject);
+
+        Time.timeScale = 1f;
     }
 
     private void Start()
     {
-        // Start game at the Start Screen
+        Time.timeScale = 1f;
         SetState(GameState.StartScreen);
     }
 
@@ -96,11 +98,8 @@ public class GameManager : MonoBehaviour
 
     #region Event Handlers
     private void HandleGameStart() => SetState(GameState.Playing);
-
     private void HandleGameOver() => SetState(GameState.GameOver);
-
     private void HandleGameRestart() => SetState(GameState.Playing);
-
     private void HandleReturnToLobby() => SetState(GameState.Lobby);
 
     private void HandleDoofusFell()
@@ -109,7 +108,6 @@ public class GameManager : MonoBehaviour
     }
 
     private void HandleRewindStart() => SetState(GameState.Rewinding);
-
     private void HandleRewindComplete() => SetState(GameState.Playing);
     #endregion
 }
