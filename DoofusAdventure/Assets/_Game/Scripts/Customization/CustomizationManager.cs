@@ -2,13 +2,15 @@
 
 /// <summary>
 /// Manages player color customization for Body, Head, and Eyes:
-/// - Supports URP Lit materials (_BaseColor)
-/// - Direct runtime renderer recoloring for instant feedback
+/// - Supports preset palettes AND custom color wheel / spectrum selection
+/// - Direct URP Lit material (_BaseColor) and runtime renderer recoloring
 /// - Persistent saving via PlayerPrefs
 /// </summary>
 public class CustomizationManager : MonoBehaviour
 {
     public static CustomizationManager Instance { get; private set; }
+
+    public enum CustomPart { Body, Head, Eyes }
 
     [Header("Material References to Tint")]
     [SerializeField] private Material bodyMaterial;
@@ -39,9 +41,30 @@ public class CustomizationManager : MonoBehaviour
         Color.white                      // Pure White
     };
 
-    private const string BODY_COLOR_KEY = "Doofus_BodyColorIndex";
-    private const string HEAD_COLOR_KEY = "Doofus_HeadColorIndex";
-    private const string EYE_COLOR_KEY = "Doofus_EyeColorIndex";
+    // Full 360-Degree Rainbow Color Wheel Swatches
+    public Color[] rainbowWheelColors = new Color[]
+    {
+        new Color(1f, 0.15f, 0.15f),    // 0° Pure Red
+        new Color(1f, 0.50f, 0.10f),    // 30° Orange
+        new Color(1f, 0.88f, 0.10f),    // 60° Yellow
+        new Color(0.65f, 0.95f, 0.15f), // 90° Lime Green
+        new Color(0.15f, 0.85f, 0.35f), // 120° Green
+        new Color(0.10f, 0.85f, 0.85f), // 180° Cyan
+        new Color(0.20f, 0.45f, 1f),    // 240° Blue
+        new Color(0.60f, 0.20f, 1f),    // 280° Purple
+        new Color(0.95f, 0.25f, 0.85f), // 310° Magenta
+        new Color(1f, 0.40f, 0.65f),    // 340° Bubblegum Pink
+        Color.white,                     // Pure White
+        new Color(0.12f, 0.12f, 0.12f)  // Jet Black
+    };
+
+    private const string BODY_COLOR_KEY = "Doofus_BodyColorHex";
+    private const string HEAD_COLOR_KEY = "Doofus_HeadColorHex";
+    private const string EYE_COLOR_KEY = "Doofus_EyeColorHex";
+
+    public Color CurrentBodyColor { get; private set; } = Color.white;
+    public Color CurrentHeadColor { get; private set; } = Color.white;
+    public Color CurrentEyeColor { get; private set; } = new Color(0.08f, 0.08f, 0.08f);
 
     public int CurrentBodyIndex { get; private set; } = 0;
     public int CurrentHeadIndex { get; private set; } = 0;
@@ -69,9 +92,7 @@ public class CustomizationManager : MonoBehaviour
         if (colorIndex >= 0 && colorIndex < bodyColors.Length)
         {
             CurrentBodyIndex = colorIndex;
-            PlayerPrefs.SetInt(BODY_COLOR_KEY, CurrentBodyIndex);
-            PlayerPrefs.Save();
-            ApplyCurrentColors();
+            SetCustomPartColor(CustomPart.Body, bodyColors[colorIndex]);
         }
     }
 
@@ -80,9 +101,7 @@ public class CustomizationManager : MonoBehaviour
         if (colorIndex >= 0 && colorIndex < bodyColors.Length)
         {
             CurrentHeadIndex = colorIndex;
-            PlayerPrefs.SetInt(HEAD_COLOR_KEY, CurrentHeadIndex);
-            PlayerPrefs.Save();
-            ApplyCurrentColors();
+            SetCustomPartColor(CustomPart.Head, bodyColors[colorIndex]);
         }
     }
 
@@ -91,37 +110,54 @@ public class CustomizationManager : MonoBehaviour
         if (colorIndex >= 0 && colorIndex < eyeColors.Length)
         {
             CurrentEyeIndex = colorIndex;
-            PlayerPrefs.SetInt(EYE_COLOR_KEY, CurrentEyeIndex);
-            PlayerPrefs.Save();
-            ApplyCurrentColors();
+            SetCustomPartColor(CustomPart.Eyes, eyeColors[colorIndex]);
         }
+    }
+
+    public void SetCustomPartColor(CustomPart part, Color color)
+    {
+        switch (part)
+        {
+            case CustomPart.Body:
+                CurrentBodyColor = color;
+                PlayerPrefs.SetString(BODY_COLOR_KEY, "#" + ColorUtility.ToHtmlStringRGBA(color));
+                break;
+            case CustomPart.Head:
+                CurrentHeadColor = color;
+                PlayerPrefs.SetString(HEAD_COLOR_KEY, "#" + ColorUtility.ToHtmlStringRGBA(color));
+                break;
+            case CustomPart.Eyes:
+                CurrentEyeColor = color;
+                PlayerPrefs.SetString(EYE_COLOR_KEY, "#" + ColorUtility.ToHtmlStringRGBA(color));
+                break;
+        }
+
+        PlayerPrefs.Save();
+        ApplyCurrentColors();
     }
 
     public void ApplyCurrentColors()
     {
-        // 1. Tint Shared Material Assets
-        if (bodyMaterial != null && CurrentBodyIndex < bodyColors.Length)
+        // 1. Tint Materials
+        if (bodyMaterial != null)
         {
-            Color c = bodyColors[CurrentBodyIndex];
-            if (bodyMaterial.HasProperty("_BaseColor")) bodyMaterial.SetColor("_BaseColor", c);
-            else bodyMaterial.color = c;
+            if (bodyMaterial.HasProperty("_BaseColor")) bodyMaterial.SetColor("_BaseColor", CurrentBodyColor);
+            else bodyMaterial.color = CurrentBodyColor;
         }
 
-        if (headMaterial != null && CurrentHeadIndex < bodyColors.Length)
+        if (headMaterial != null)
         {
-            Color c = bodyColors[CurrentHeadIndex];
-            if (headMaterial.HasProperty("_BaseColor")) headMaterial.SetColor("_BaseColor", c);
-            else headMaterial.color = c;
+            if (headMaterial.HasProperty("_BaseColor")) headMaterial.SetColor("_BaseColor", CurrentHeadColor);
+            else headMaterial.color = CurrentHeadColor;
         }
 
-        if (eyesMaterial != null && CurrentEyeIndex < eyeColors.Length)
+        if (eyesMaterial != null)
         {
-            Color c = eyeColors[CurrentEyeIndex];
-            if (eyesMaterial.HasProperty("_BaseColor")) eyesMaterial.SetColor("_BaseColor", c);
-            else eyesMaterial.color = c;
+            if (eyesMaterial.HasProperty("_BaseColor")) eyesMaterial.SetColor("_BaseColor", CurrentEyeColor);
+            else eyesMaterial.color = CurrentEyeColor;
         }
 
-        // 2. Direct Runtime Renderer Tinting on Doofus in Scene
+        // 2. Direct Runtime Renderer Tinting on Character in Scene
         DoofusController doofus = FindAnyObjectByType<DoofusController>();
         if (doofus != null)
         {
@@ -131,13 +167,13 @@ public class CustomizationManager : MonoBehaviour
             if (bodyObj != null)
             {
                 MeshRenderer mr = bodyObj.GetComponent<MeshRenderer>();
-                if (mr != null) SetRendererColor(mr, bodyColors[CurrentBodyIndex]);
+                if (mr != null) SetRendererColor(mr, CurrentBodyColor);
             }
 
             if (headObj != null)
             {
                 MeshRenderer mr = headObj.GetComponent<MeshRenderer>();
-                if (mr != null) SetRendererColor(mr, bodyColors[CurrentHeadIndex]);
+                if (mr != null) SetRendererColor(mr, CurrentHeadColor);
 
                 Transform leftEye = headObj.Find("LeftEye");
                 Transform rightEye = headObj.Find("RightEye");
@@ -145,12 +181,12 @@ public class CustomizationManager : MonoBehaviour
                 if (leftEye != null)
                 {
                     MeshRenderer mrEye = leftEye.GetComponent<MeshRenderer>();
-                    if (mrEye != null) SetRendererColor(mrEye, eyeColors[CurrentEyeIndex]);
+                    if (mrEye != null) SetRendererColor(mrEye, CurrentEyeColor);
                 }
                 if (rightEye != null)
                 {
                     MeshRenderer mrEye = rightEye.GetComponent<MeshRenderer>();
-                    if (mrEye != null) SetRendererColor(mrEye, eyeColors[CurrentEyeIndex]);
+                    if (mrEye != null) SetRendererColor(mrEye, CurrentEyeColor);
                 }
             }
         }
@@ -167,8 +203,22 @@ public class CustomizationManager : MonoBehaviour
 
     private void LoadSavedColors()
     {
-        CurrentBodyIndex = PlayerPrefs.GetInt(BODY_COLOR_KEY, 0);
-        CurrentHeadIndex = PlayerPrefs.GetInt(HEAD_COLOR_KEY, 0);
-        CurrentEyeIndex = PlayerPrefs.GetInt(EYE_COLOR_KEY, 0);
+        string bodyHex = PlayerPrefs.GetString(BODY_COLOR_KEY, "");
+        if (!string.IsNullOrEmpty(bodyHex) && ColorUtility.TryParseHtmlString(bodyHex, out Color bCol))
+            CurrentBodyColor = bCol;
+        else
+            CurrentBodyColor = Color.white;
+
+        string headHex = PlayerPrefs.GetString(HEAD_COLOR_KEY, "");
+        if (!string.IsNullOrEmpty(headHex) && ColorUtility.TryParseHtmlString(headHex, out Color hCol))
+            CurrentHeadColor = hCol;
+        else
+            CurrentHeadColor = Color.white;
+
+        string eyeHex = PlayerPrefs.GetString(EYE_COLOR_KEY, "");
+        if (!string.IsNullOrEmpty(eyeHex) && ColorUtility.TryParseHtmlString(eyeHex, out Color eCol))
+            CurrentEyeColor = eCol;
+        else
+            CurrentEyeColor = new Color(0.08f, 0.08f, 0.08f);
     }
 }

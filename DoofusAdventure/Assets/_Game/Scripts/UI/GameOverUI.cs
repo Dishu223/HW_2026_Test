@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Self-contained Game Over screen using universal typography.
+/// Self-contained Game Over screen with robust Restart triggers and score tallying.
 /// </summary>
 [RequireComponent(typeof(CanvasGroup))]
 public class GameOverUI : MonoBehaviour
@@ -17,7 +17,7 @@ public class GameOverUI : MonoBehaviour
 
     private CanvasGroup canvasGroup;
     private Coroutine scoreTickerRoutine;
-    private float activationCooldown = 0.6f;
+    private float activationCooldown = 0.5f;
     private float timer = 0f;
     private bool isGameOverActive = false;
 
@@ -33,12 +33,14 @@ public class GameOverUI : MonoBehaviour
     {
         GameEvents.OnGameOver += HandleGameOver;
         GameEvents.OnGameStart += HandleGameStart;
+        GameEvents.OnGameRestart += HandleGameStart;
     }
 
     private void OnDisable()
     {
         GameEvents.OnGameOver -= HandleGameOver;
         GameEvents.OnGameStart -= HandleGameStart;
+        GameEvents.OnGameRestart -= HandleGameStart;
     }
 
     private void HandleGameOver()
@@ -65,7 +67,7 @@ public class GameOverUI : MonoBehaviour
 
         if (restartPromptText != null)
         {
-            restartPromptText.text = ">> PRESS R TO RETRY <<";
+            restartPromptText.text = ">> PRESS R OR SPACE TO RETRY <<";
         }
 
         DisplayGameOverResults();
@@ -125,7 +127,7 @@ public class GameOverUI : MonoBehaviour
 
     private IEnumerator ScoreTickerCoroutine(int targetScore)
     {
-        float duration = 1.0f;
+        float duration = 0.8f;
         float elapsed = 0f;
 
         while (elapsed < duration)
@@ -147,11 +149,11 @@ public class GameOverUI : MonoBehaviour
 
         if (GameManager.Instance != null)
         {
-            GameManager.Instance.SetState(GameManager.GameState.Playing);
+            GameManager.Instance.RestartGame();
         }
         else
         {
-            GameEvents.TriggerGameStart();
+            GameEvents.TriggerGameRestart();
         }
     }
 }

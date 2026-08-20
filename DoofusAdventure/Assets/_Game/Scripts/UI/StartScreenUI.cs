@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -7,8 +7,9 @@ using UnityEngine.UI;
 /// <summary>
 /// Combined Start Screen & Character Customization Lobby UI:
 /// - Title & Animated Prompt (>> PRESS SPACE OR CLICK PLAY <<)
-/// - Interactive Color Swatch Palettes for Body, Head, and Eyes
-/// - Real-time 3D Doofus Turntable Rotation Preview in the Lobby
+/// - Preset Palettes + 360-Degree Rainbow Color Wheel Swatches
+/// - Target Selector (BODY / HEAD / EYES)
+/// - Real-time 3D Doofus Turntable Rotation Preview
 /// - Saves colors to PlayerPrefs and starts game seamlessly
 /// </summary>
 public class StartScreenUI : MonoBehaviour
@@ -20,9 +21,16 @@ public class StartScreenUI : MonoBehaviour
     private float initialTitleY;
     private GameObject customPanelObj;
     private DoofusController doofusPreview;
-    private readonly List<Image> bodySwatchOutlines = new List<Image>();
-    private readonly List<Image> headSwatchOutlines = new List<Image>();
-    private readonly List<Image> eyeSwatchOutlines = new List<Image>();
+    private CustomizationManager.CustomPart selectedPart = CustomizationManager.CustomPart.Body;
+
+    private Button bodyTabBtn;
+    private Button headTabBtn;
+    private Button eyeTabBtn;
+    private Image bodyTabImg;
+    private Image headTabImg;
+    private Image eyeTabImg;
+
+    private readonly List<Image> wheelSwatchOutlines = new List<Image>();
 
     private void Awake()
     {
@@ -46,7 +54,7 @@ public class StartScreenUI : MonoBehaviour
         }
 
         BuildCustomizationLobbyPanel();
-        RefreshSelectionOutlines();
+        RefreshTabHighlights();
     }
 
     private void Update()
@@ -91,65 +99,65 @@ public class StartScreenUI : MonoBehaviour
         panelRT.anchorMax = new Vector2(1f, 0.5f);
         panelRT.pivot = new Vector2(1f, 0.5f);
         panelRT.anchoredPosition = new Vector2(-40f, 0f);
-        panelRT.sizeDelta = new Vector2(360f, 420f);
+        panelRT.sizeDelta = new Vector2(380f, 460f);
 
         Image bgImage = customPanelObj.AddComponent<Image>();
-        bgImage.color = new Color(0.05f, 0.08f, 0.12f, 0.88f); // Sleek dark glass
+        bgImage.color = new Color(0.04f, 0.07f, 0.11f, 0.90f);
 
         VerticalLayoutGroup vlg = customPanelObj.AddComponent<VerticalLayoutGroup>();
-        vlg.padding = new RectOffset(20, 20, 20, 20);
-        vlg.spacing = 14f;
+        vlg.padding = new RectOffset(18, 18, 18, 18);
+        vlg.spacing = 12f;
         vlg.childAlignment = TextAnchor.UpperCenter;
         vlg.childControlWidth = true;
         vlg.childControlHeight = false;
 
         // Card Header Title
-        CreateTextLabel(customPanelObj.transform, "🎨 CUSTOMIZE DOOFUS", 20f, FontStyles.Bold, new Color(0f, 0.9f, 1f));
+        CreateTextLabel(customPanelObj.transform, "🎨 CHARACTER STUDIO", 18f, FontStyles.Bold, new Color(0f, 0.90f, 1f));
 
-        // 1. Body Color Palette
-        CreateTextLabel(customPanelObj.transform, "BODY COLOR", 13f, FontStyles.Bold, new Color(0.8f, 0.85f, 0.9f));
-        Transform bodyRow = CreateRowContainer(customPanelObj.transform);
+        // Part Selector Tabs [ BODY ] [ HEAD ] [ EYES ]
+        Transform tabsRow = CreateRowContainer(customPanelObj.transform, 36f);
+        bodyTabBtn = CreateTabButton(tabsRow, "BODY", () => SetActiveTab(CustomizationManager.CustomPart.Body), out bodyTabImg);
+        headTabBtn = CreateTabButton(tabsRow, "HEAD", () => SetActiveTab(CustomizationManager.CustomPart.Head), out headTabImg);
+        eyeTabBtn = CreateTabButton(tabsRow, "EYES", () => SetActiveTab(CustomizationManager.CustomPart.Eyes), out eyeTabImg);
+
+        // Section Title: Rainbow Spectrum & Color Wheel
+        CreateTextLabel(customPanelObj.transform, "🌈 360° COLOR WHEEL SPECTRUM", 12f, FontStyles.Bold, new Color(0.85f, 0.90f, 0.95f));
+
+        // 360-Degree Rainbow Color Wheel Grid (2 Rows of 6 swatches)
+        Transform wheelRow1 = CreateRowContainer(customPanelObj.transform, 34f);
+        for (int i = 0; i < 6; i++)
+        {
+            int idx = i;
+            Color c = CustomizationManager.Instance.rainbowWheelColors[i];
+            CreateSwatchButton(wheelRow1, c, wheelSwatchOutlines, () => ApplyWheelColor(c));
+        }
+
+        Transform wheelRow2 = CreateRowContainer(customPanelObj.transform, 34f);
+        for (int i = 6; i < CustomizationManager.Instance.rainbowWheelColors.Length; i++)
+        {
+            int idx = i;
+            Color c = CustomizationManager.Instance.rainbowWheelColors[i];
+            CreateSwatchButton(wheelRow2, c, wheelSwatchOutlines, () => ApplyWheelColor(c));
+        }
+
+        // Section Title: Quick Classic Presets
+        CreateTextLabel(customPanelObj.transform, "QUICK PALETTE PRESETS", 12f, FontStyles.Bold, new Color(0.75f, 0.80f, 0.85f));
+        Transform presetRow = CreateRowContainer(customPanelObj.transform, 32f);
         for (int i = 0; i < CustomizationManager.Instance.bodyColors.Length; i++)
         {
             int idx = i;
-            CreateSwatchButton(bodyRow, CustomizationManager.Instance.bodyColors[i], bodySwatchOutlines, () => {
-                CustomizationManager.Instance.SetBodyColor(idx);
-                RefreshSelectionOutlines();
-            });
+            Color c = CustomizationManager.Instance.bodyColors[i];
+            CreateSwatchButton(presetRow, c, null, () => ApplyPresetColor(idx));
         }
 
-        // 2. Head Color Palette
-        CreateTextLabel(customPanelObj.transform, "HEAD COLOR", 13f, FontStyles.Bold, new Color(0.8f, 0.85f, 0.9f));
-        Transform headRow = CreateRowContainer(customPanelObj.transform);
-        for (int i = 0; i < CustomizationManager.Instance.bodyColors.Length; i++)
-        {
-            int idx = i;
-            CreateSwatchButton(headRow, CustomizationManager.Instance.bodyColors[i], headSwatchOutlines, () => {
-                CustomizationManager.Instance.SetHeadColor(idx);
-                RefreshSelectionOutlines();
-            });
-        }
-
-        // 3. Eye Color Palette
-        CreateTextLabel(customPanelObj.transform, "EYE COLOR", 13f, FontStyles.Bold, new Color(0.8f, 0.85f, 0.9f));
-        Transform eyeRow = CreateRowContainer(customPanelObj.transform);
-        for (int i = 0; i < CustomizationManager.Instance.eyeColors.Length; i++)
-        {
-            int idx = i;
-            CreateSwatchButton(eyeRow, CustomizationManager.Instance.eyeColors[i], eyeSwatchOutlines, () => {
-                CustomizationManager.Instance.SetEyeColor(idx);
-                RefreshSelectionOutlines();
-            });
-        }
-
-        // 4. Play Button
+        // Play Button
         GameObject playBtnObj = new GameObject("Play_Button");
         playBtnObj.transform.SetParent(customPanelObj.transform, false);
         RectTransform playBtnRT = playBtnObj.AddComponent<RectTransform>();
-        playBtnRT.sizeDelta = new Vector2(320f, 44f);
+        playBtnRT.sizeDelta = new Vector2(340f, 44f);
 
         Image playBtnImg = playBtnObj.AddComponent<Image>();
-        playBtnImg.color = new Color(0f, 0.85f, 0.45f); // Vibrant Emerald Green
+        playBtnImg.color = new Color(0f, 0.85f, 0.45f);
 
         Button playBtn = playBtnObj.AddComponent<Button>();
         playBtn.onClick.AddListener(LaunchGame);
@@ -157,12 +165,69 @@ public class StartScreenUI : MonoBehaviour
         CreateTextLabel(playBtnObj.transform, "START RUN  ▶", 16f, FontStyles.Bold, Color.black);
     }
 
-    private Transform CreateRowContainer(Transform parent)
+    private Button CreateTabButton(Transform parent, string label, UnityEngine.Events.UnityAction onClick, out Image tabBg)
     {
-        GameObject row = new GameObject("Swatch_Row");
+        GameObject btnObj = new GameObject("Tab_" + label);
+        btnObj.transform.SetParent(parent, false);
+        RectTransform rt = btnObj.AddComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(105f, 32f);
+
+        tabBg = btnObj.AddComponent<Image>();
+        tabBg.color = new Color(0.15f, 0.20f, 0.28f);
+
+        Button btn = btnObj.AddComponent<Button>();
+        btn.onClick.AddListener(onClick);
+
+        CreateTextLabel(btnObj.transform, label, 12f, FontStyles.Bold, Color.white);
+        return btn;
+    }
+
+    private void SetActiveTab(CustomizationManager.CustomPart part)
+    {
+        selectedPart = part;
+        RefreshTabHighlights();
+    }
+
+    private void RefreshTabHighlights()
+    {
+        Color activeCol = new Color(0f, 0.80f, 1f, 1f);
+        Color inactiveCol = new Color(0.15f, 0.20f, 0.28f, 0.9f);
+
+        if (bodyTabImg != null) bodyTabImg.color = (selectedPart == CustomizationManager.CustomPart.Body) ? activeCol : inactiveCol;
+        if (headTabImg != null) headTabImg.color = (selectedPart == CustomizationManager.CustomPart.Head) ? activeCol : inactiveCol;
+        if (eyeTabImg != null) eyeTabImg.color = (selectedPart == CustomizationManager.CustomPart.Eyes) ? activeCol : inactiveCol;
+    }
+
+    private void ApplyWheelColor(Color c)
+    {
+        if (CustomizationManager.Instance == null) return;
+        CustomizationManager.Instance.SetCustomPartColor(selectedPart, c);
+    }
+
+    private void ApplyPresetColor(int idx)
+    {
+        if (CustomizationManager.Instance == null) return;
+
+        switch (selectedPart)
+        {
+            case CustomizationManager.CustomPart.Body:
+                CustomizationManager.Instance.SetBodyColor(idx);
+                break;
+            case CustomizationManager.CustomPart.Head:
+                CustomizationManager.Instance.SetHeadColor(idx);
+                break;
+            case CustomizationManager.CustomPart.Eyes:
+                CustomizationManager.Instance.SetEyeColor(idx % CustomizationManager.Instance.eyeColors.Length);
+                break;
+        }
+    }
+
+    private Transform CreateRowContainer(Transform parent, float height)
+    {
+        GameObject row = new GameObject("Row");
         row.transform.SetParent(parent, false);
         RectTransform rt = row.AddComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(320f, 34f);
+        rt.sizeDelta = new Vector2(340f, height);
 
         HorizontalLayoutGroup hlg = row.AddComponent<HorizontalLayoutGroup>();
         hlg.spacing = 6f;
@@ -178,20 +243,18 @@ public class StartScreenUI : MonoBehaviour
         GameObject btnObj = new GameObject("Swatch_Btn");
         btnObj.transform.SetParent(parent, false);
         RectTransform rt = btnObj.AddComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(32f, 32f);
+        rt.sizeDelta = new Vector2(28f, 28f);
 
-        // Selection Border / Outline
         Image outlineImg = btnObj.AddComponent<Image>();
         outlineImg.color = new Color(1f, 1f, 1f, 0.2f);
-        outlineList.Add(outlineImg);
+        if (outlineList != null) outlineList.Add(outlineImg);
 
-        // Inner Color Circle
         GameObject inner = new GameObject("Color_Inner");
         inner.transform.SetParent(btnObj.transform, false);
         RectTransform innerRT = inner.AddComponent<RectTransform>();
         innerRT.anchorMin = Vector2.zero;
         innerRT.anchorMax = Vector2.one;
-        innerRT.sizeDelta = new Vector2(-4f, -4f); // 2px margin
+        innerRT.sizeDelta = new Vector2(-4f, -4f);
 
         Image innerImg = inner.AddComponent<Image>();
         innerImg.color = color;
@@ -206,7 +269,7 @@ public class StartScreenUI : MonoBehaviour
         GameObject txtObj = new GameObject("Label_" + text);
         txtObj.transform.SetParent(parent, false);
         RectTransform rt = txtObj.AddComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(320f, size + 8f);
+        rt.sizeDelta = new Vector2(340f, size + 6f);
 
         TextMeshProUGUI tmp = txtObj.AddComponent<TextMeshProUGUI>();
         tmp.text = text;
@@ -216,37 +279,10 @@ public class StartScreenUI : MonoBehaviour
         tmp.alignment = TextAlignmentOptions.Center;
     }
 
-    private void RefreshSelectionOutlines()
-    {
-        if (CustomizationManager.Instance == null) return;
-
-        // Highlight active body swatch
-        for (int i = 0; i < bodySwatchOutlines.Count; i++)
-        {
-            bool isSelected = (i == CustomizationManager.Instance.CurrentBodyIndex);
-            bodySwatchOutlines[i].color = isSelected ? new Color(0f, 0.9f, 1f, 1f) : new Color(1f, 1f, 1f, 0.15f);
-        }
-
-        // Highlight active head swatch
-        for (int i = 0; i < headSwatchOutlines.Count; i++)
-        {
-            bool isSelected = (i == CustomizationManager.Instance.CurrentHeadIndex);
-            headSwatchOutlines[i].color = isSelected ? new Color(0f, 0.9f, 1f, 1f) : new Color(1f, 1f, 1f, 0.15f);
-        }
-
-        // Highlight active eye swatch
-        for (int i = 0; i < eyeSwatchOutlines.Count; i++)
-        {
-            bool isSelected = (i == CustomizationManager.Instance.CurrentEyeIndex);
-            eyeSwatchOutlines[i].color = isSelected ? new Color(0f, 0.9f, 1f, 1f) : new Color(1f, 1f, 1f, 0.15f);
-        }
-    }
-
     private void LaunchGame()
     {
         Debug.Log("[StartScreenUI] Starting Run with Customized Character!");
 
-        // Reset Doofus rotation forward before starting
         if (doofusPreview != null)
         {
             doofusPreview.transform.rotation = Quaternion.identity;

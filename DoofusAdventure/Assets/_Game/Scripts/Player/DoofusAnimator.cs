@@ -8,7 +8,7 @@ using UnityEngine;
 /// - Continuous rhythmic back-and-forth head bobbing while running
 /// - Exaggerated stopping brake & forward whip
 /// - High-visibility cartoon eyes
-/// - Blinking warning flashes on Rewind and Game Over!
+/// - Buttery smooth falling tumble into the void!
 /// </summary>
 public class DoofusAnimator : MonoBehaviour
 {
@@ -54,11 +54,8 @@ public class DoofusAnimator : MonoBehaviour
     private bool isBlinking = false;
     private Coroutine blinkRoutine;
     private Coroutine squashRoutine;
-    private Coroutine characterFlashRoutine;
     private bool isFalling = false;
     private float currentPulpitTimer = 1f;
-
-    private readonly List<Renderer> characterRenderers = new List<Renderer>();
 
     private void Awake()
     {
@@ -80,9 +77,6 @@ public class DoofusAnimator : MonoBehaviour
             defaultEyeScale = new Vector3(0.16f, 0.16f, 0.16f);
 
         nextBlinkTime = Random.Range(2.0f, 3.5f);
-
-        // Cache all child renderers for character blink flashes
-        characterRenderers.AddRange(GetComponentsInChildren<Renderer>());
     }
 
     private void OnEnable()
@@ -91,6 +85,7 @@ public class DoofusAnimator : MonoBehaviour
         GameEvents.OnPulpitTimerTick += HandleTimerTickForEyes;
         GameEvents.OnDoofusFell += HandleDoofusFell;
         GameEvents.OnGameStart += HandleGameStart;
+        GameEvents.OnGameRestart += HandleGameStart;
         GameEvents.OnRewindStart += HandleRewindStart;
         GameEvents.OnGameOver += HandleGameOver;
     }
@@ -101,6 +96,7 @@ public class DoofusAnimator : MonoBehaviour
         GameEvents.OnPulpitTimerTick -= HandleTimerTickForEyes;
         GameEvents.OnDoofusFell -= HandleDoofusFell;
         GameEvents.OnGameStart -= HandleGameStart;
+        GameEvents.OnGameRestart -= HandleGameStart;
         GameEvents.OnRewindStart -= HandleRewindStart;
         GameEvents.OnGameOver -= HandleGameOver;
     }
@@ -153,9 +149,8 @@ public class DoofusAnimator : MonoBehaviour
             else if (stopOvershootTimer > 0f)
             {
                 float progress = 1f - (stopOvershootTimer / OVERSHOOT_DURATION);
-                float springFactor = Mathf.Sin(progress * Mathf.PI * 2f) * (1f - progress);
-                float overshootAngle = -stopOvershootAngle * springFactor;
-                targetLean = Quaternion.Euler(overshootAngle, 0f, 0f);
+                float angle = Mathf.Sin(progress * Mathf.PI) * stopOvershootAngle;
+                targetLean = Quaternion.Euler(-angle, 0f, 0f);
             }
 
             bodyTransform.localRotation = Quaternion.Slerp(bodyTransform.localRotation, targetLean, Time.deltaTime * leanSmoothSpeed);
@@ -166,80 +161,73 @@ public class DoofusAnimator : MonoBehaviour
     {
         if (headTransform == null) return;
 
-        Vector3 targetHeadPos = defaultHeadLocalPos;
+        Vector3 targetHeadLocalPos = defaultHeadLocalPos;
 
         if (isMoving)
         {
-            float rhythmicBobZ = Mathf.Sin(Time.time * headRunBobSpeed) * headRunBobAmount;
-            float rhythmicBobY = Mathf.Abs(Mathf.Cos(Time.time * headRunBobSpeed)) * 0.04f;
-            targetHeadPos = defaultHeadLocalPos + new Vector3(0f, -0.03f + rhythmicBobY, -headRunLagDistance + rhythmicBobZ);
+            targetHeadLocalPos.z -= headRunLagDistance;
+            float bob = Mathf.Sin(Time.time * headRunBobSpeed) * headRunBobAmount;
+            targetHeadLocalPos.y += bob;
         }
         else if (stopOvershootTimer > 0f)
         {
             float progress = 1f - (stopOvershootTimer / OVERSHOOT_DURATION);
-            float springFactor = Mathf.Sin(progress * Mathf.PI * 2.5f) * (1f - progress);
-            float forwardOffset = headStopOvershoot * springFactor;
-            targetHeadPos = defaultHeadLocalPos + new Vector3(0f, -0.02f, forwardOffset);
+            float overshootZ = Mathf.Sin(progress * Mathf.PI) * headStopOvershoot;
+            targetHeadLocalPos.z += overshootZ;
         }
 
-        headTransform.localPosition = Vector3.SmoothDamp(headTransform.localPosition, targetHeadPos, ref headVelocity, headSpringTime);
+        headTransform.localPosition = Vector3.SmoothDamp(
+            headTransform.localPosition,
+            targetHeadLocalPos,
+            ref headVelocity,
+            headSpringTime
+        );
     }
 
     private void ApplyIdleBounce(bool isMoving)
     {
-        if (bodyTransform == null) return;
+        if (isMoving || bodyTransform == null) return;
 
-        float targetBounce = (isMoving || stopOvershootTimer > 0f) ? 0f : Mathf.Sin(Time.time * idleBounceSpeed) * idleBounceHeight;
-        Vector3 targetPos = defaultBodyLocalPos + new Vector3(0f, targetBounce, 0f);
-        bodyTransform.localPosition = Vector3.Lerp(bodyTransform.localPosition, targetPos, Time.deltaTime * 8f);
+        float bounce = Mathf.Sin(Time.time * idleBounceSpeed) * idleBounceHeight;
+        bodyTransform.localPosition = defaultBodyLocalPos + new Vector3(0f, bounce, 0f);
     }
 
     private void UpdateEyeExpressions(bool isMoving)
     {
-        if (leftEyeTransform == null || rightEyeTransform == null || isFalling) return;
+        if (leftEyeTransform == null || rightEyeTransform == null) return;
 
-        if (!isMoving && !isBlinking)
+        if (!isBlinking)
         {
             blinkTimer += Time.deltaTime;
             if (blinkTimer >= nextBlinkTime)
             {
                 blinkTimer = 0f;
-                nextBlinkTime = Random.Range(2.0f, 3.5f);
-                TriggerBlink(0.20f);
+                nextBlinkTime = Random.Range(2.5f, 4.5f);
+                TriggerBlink(0.18f);
             }
         }
-        else if (isMoving)
-        {
-            blinkTimer = 0f;
-        }
 
-        if (isBlinking) return;
+        if (!isBlinking)
+        {
+            Vector3 targetScale = defaultEyeScale;
 
-        float scaleMultiplier = 1f;
+            if (currentPulpitTimer < 0.35f)
+            {
+                float panicT = 1f - (currentPulpitTimer / 0.35f);
+                float panicScale = 1.0f + panicT * 0.50f;
+                targetScale = new Vector3(defaultEyeScale.x * panicScale, defaultEyeScale.y * panicScale, defaultEyeScale.z);
+            }
+            else if (isMoving)
+            {
+                targetScale = new Vector3(defaultEyeScale.x * 1.25f, defaultEyeScale.y * 1.25f, defaultEyeScale.z);
+            }
 
-        if (currentPulpitTimer < 0.25f)
-        {
-            scaleMultiplier = 1.8f + Mathf.Sin(Time.time * 30f) * 0.2f;
+            leftEyeTransform.localScale = Vector3.Lerp(leftEyeTransform.localScale, targetScale, Time.deltaTime * 12f);
+            rightEyeTransform.localScale = Vector3.Lerp(rightEyeTransform.localScale, targetScale, Time.deltaTime * 12f);
         }
-        else if (currentPulpitTimer < 0.5f)
-        {
-            scaleMultiplier = 1.35f;
-        }
-        else if (isMoving)
-        {
-            scaleMultiplier = 1.45f;
-        }
-        else
-        {
-            scaleMultiplier = 1f;
-        }
-
-        Vector3 targetScale = defaultEyeScale * scaleMultiplier;
-        leftEyeTransform.localScale = Vector3.Lerp(leftEyeTransform.localScale, targetScale, Time.deltaTime * 14f);
-        rightEyeTransform.localScale = Vector3.Lerp(rightEyeTransform.localScale, targetScale, Time.deltaTime * 14f);
     }
 
-    public void TriggerBlink(float duration = 0.20f)
+    private void TriggerBlink(float duration)
     {
         if (!gameObject.activeInHierarchy) return;
 
@@ -327,44 +315,14 @@ public class DoofusAnimator : MonoBehaviour
         transform.localScale = originalScale;
     }
 
-    #region Character Blinking Flashes
-    private void TriggerCharacterBlinkFlashes(int flashCount = 4, float interval = 0.08f)
-    {
-        if (!gameObject.activeInHierarchy) return;
-
-        if (characterFlashRoutine != null) StopCoroutine(characterFlashRoutine);
-        characterFlashRoutine = StartCoroutine(CharacterFlashCoroutine(flashCount, interval));
-    }
-
-    private IEnumerator CharacterFlashCoroutine(int flashCount, float interval)
-    {
-        for (int i = 0; i < flashCount; i++)
-        {
-            SetRenderersVisibility(false);
-            yield return new WaitForSecondsRealtime(interval);
-            SetRenderersVisibility(true);
-            yield return new WaitForSecondsRealtime(interval);
-        }
-        SetRenderersVisibility(true);
-    }
-
-    private void SetRenderersVisibility(bool visible)
-    {
-        foreach (Renderer r in characterRenderers)
-        {
-            if (r != null) r.enabled = visible;
-        }
-    }
-    #endregion
-
     private void HandleRewindStart()
     {
-        TriggerCharacterBlinkFlashes(4, 0.07f);
+        isFalling = false;
     }
 
     private void HandleGameOver()
     {
-        TriggerCharacterBlinkFlashes(5, 0.08f);
+        // Keep mesh continuously visible for smooth physics fall
     }
 
     private void HandleTimerTickForEyes(float normalizedTime)
@@ -382,7 +340,8 @@ public class DoofusAnimator : MonoBehaviour
 
     private void ApplyFallingTumble()
     {
-        transform.Rotate(new Vector3(220f, 120f, 60f) * Time.deltaTime, Space.Self);
+        // Smooth World-Space gentle rotation while falling
+        transform.Rotate(new Vector3(110f, 65f, 40f) * Time.deltaTime, Space.World);
     }
 
     private void HandleGameStart()
@@ -390,7 +349,6 @@ public class DoofusAnimator : MonoBehaviour
         isFalling = false;
         transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
         transform.localScale = Vector3.one;
-        SetRenderersVisibility(true);
 
         if (leftEyeTransform != null) leftEyeTransform.localScale = defaultEyeScale;
         if (rightEyeTransform != null) rightEyeTransform.localScale = defaultEyeScale;

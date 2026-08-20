@@ -3,7 +3,7 @@
 /// <summary>
 /// Smoothly tracks Doofus from an isometric perspective,
 /// provides cinematic buttery-smooth camera zoom during Prince of Persia Time Rewind (zero snapping),
-/// and applies screen shake on platform collapses and milestones.
+/// and softly overlooks falls without violent downward camera judder.
 /// </summary>
 public class CameraController : MonoBehaviour
 {
@@ -15,7 +15,7 @@ public class CameraController : MonoBehaviour
     [SerializeField] private float positionSmoothTime = 0.25f;
 
     [Header("Rewind Dynamic Zoom")]
-    [SerializeField] private float rewindZoomFactor = 0.80f; // 20% closer for intimate cinematic feel
+    [SerializeField] private float rewindZoomFactor = 0.80f;
     [SerializeField] private float zoomSmoothTime = 0.40f;
 
     [Header("Screen Shake")]
@@ -41,6 +41,8 @@ public class CameraController : MonoBehaviour
         GameEvents.OnMilestoneReached += HandleMilestone;
         GameEvents.OnRewindStart += HandleRewindStart;
         GameEvents.OnRewindComplete += HandleRewindComplete;
+        GameEvents.OnGameStart += HandleGameReset;
+        GameEvents.OnGameRestart += HandleGameReset;
     }
 
     private void OnDisable()
@@ -49,31 +51,47 @@ public class CameraController : MonoBehaviour
         GameEvents.OnMilestoneReached -= HandleMilestone;
         GameEvents.OnRewindStart -= HandleRewindStart;
         GameEvents.OnRewindComplete -= HandleRewindComplete;
+        GameEvents.OnGameStart -= HandleGameReset;
+        GameEvents.OnGameRestart -= HandleGameReset;
     }
 
     private void Start()
     {
-        if (target == null)
-        {
-            DoofusController doofus = FindAnyObjectByType<DoofusController>();
-            if (doofus != null) target = doofus.transform;
-        }
-
+        FindTarget();
         if (target != null)
         {
             transform.position = target.position + defaultOffset;
         }
     }
 
+    private void FindTarget()
+    {
+        if (target == null)
+        {
+            DoofusController doofus = FindAnyObjectByType<DoofusController>();
+            if (doofus != null) target = doofus.transform;
+        }
+    }
+
     private void LateUpdate()
     {
-        if (target == null) return;
+        if (target == null)
+        {
+            FindTarget();
+            if (target == null) return;
+        }
 
-        // Buttery-smooth zoom offset transition using SmoothDamp (never snaps or jumps!)
+        // Smooth zoom offset transition
         currentOffset = Vector3.SmoothDamp(currentOffset, targetOffset, ref zoomVelocity, zoomSmoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
 
-        // Buttery-smooth target tracking using SmoothDamp
-        Vector3 desiredPosition = target.position + currentOffset;
+        // When falling (Y < 0), clamp target Y so camera remains high and gracefully overlooks the fall
+        Vector3 trackedTargetPos = target.position;
+        if (trackedTargetPos.y < -0.2f)
+        {
+            trackedTargetPos.y = Mathf.Lerp(trackedTargetPos.y, -0.2f, 0.90f);
+        }
+
+        Vector3 desiredPosition = trackedTargetPos + currentOffset;
         transform.position = Vector3.SmoothDamp(transform.position, desiredPosition, ref positionVelocity, positionSmoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
 
         if (currentShakeIntensity > 0.01f)
@@ -91,25 +109,17 @@ public class CameraController : MonoBehaviour
         currentShakeIntensity = Mathf.Max(currentShakeIntensity, intensity);
     }
 
-    private void HandlePulpitDestroyed(Vector3 pos)
-    {
-        TriggerShake(0.18f);
-    }
+    private void HandlePulpitDestroyed(Vector3 pos) => TriggerShake(0.18f);
+    private void HandleMilestone(int milestone) => TriggerShake(0.35f);
+    private void HandleRewindStart() => targetOffset = defaultOffset * rewindZoomFactor;
+    private void HandleRewindComplete() => targetOffset = defaultOffset;
 
-    private void HandleMilestone(int milestone)
+    private void HandleGameReset()
     {
-        TriggerShake(0.35f);
-    }
-
-    private void HandleRewindStart()
-    {
-        // Smoothly glide camera closer during Time Rewind
-        targetOffset = defaultOffset * rewindZoomFactor;
-    }
-
-    private void HandleRewindComplete()
-    {
-        // Smoothly glide camera back out to default overview
         targetOffset = defaultOffset;
+        currentOffset = defaultOffset;
+        positionVelocity = Vector3.zero;
+        zoomVelocity = Vector3.zero;
+        currentShakeIntensity = 0f;
     }
 }

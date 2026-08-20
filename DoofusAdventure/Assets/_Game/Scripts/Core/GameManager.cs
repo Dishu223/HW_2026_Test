@@ -33,14 +33,12 @@ public class GameManager : MonoBehaviour
         }
         Instance = this;
 
-        // Auto-instantiate VFXManager
         if (FindAnyObjectByType<VFXManager>() == null)
         {
             GameObject vfxObj = new GameObject("VFXManager");
             vfxObj.AddComponent<VFXManager>();
         }
 
-        // Auto-instantiate SoundManager
         if (FindAnyObjectByType<SoundManager>() == null)
         {
             GameObject soundObj = new GameObject("SoundManager");
@@ -74,6 +72,12 @@ public class GameManager : MonoBehaviour
     {
         SetState(GameState.Playing);
         GameEvents.TriggerGameStart();
+    }
+
+    public void RestartGame()
+    {
+        SetState(GameState.Playing);
+        GameEvents.TriggerGameRestart();
     }
 
     public void SetState(GameState newState)
