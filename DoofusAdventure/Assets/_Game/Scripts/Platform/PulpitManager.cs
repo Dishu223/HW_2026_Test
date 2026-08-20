@@ -4,7 +4,7 @@ using UnityEngine;
 
 /// <summary>
 /// Manages spawning and positioning of Pulpit platforms.
-/// Tracks remaining spawn time for on-tile diegetic timer displays.
+/// Spawns adjacent platforms continuously during gameplay.
 /// </summary>
 public class PulpitManager : MonoBehaviour
 {
@@ -15,8 +15,6 @@ public class PulpitManager : MonoBehaviour
 
     [Header("Grid Configuration")]
     [SerializeField] private float platformSize = 5f;
-
-    public float RemainingSpawnTime { get; private set; } = 0f;
 
     private readonly List<GameObject> activePulpits = new List<GameObject>();
     private Vector3 currentPulpitPosition = Vector3.zero;
@@ -94,23 +92,14 @@ public class PulpitManager : MonoBehaviour
             StopCoroutine(spawnRoutine);
             spawnRoutine = null;
         }
-        RemainingSpawnTime = 0f;
     }
 
     private IEnumerator SpawnLoopCoroutine()
     {
         while (true)
         {
-            float totalSpawnDelay = GameConfig.Instance != null ? GameConfig.Instance.SpawnTime : 2.5f;
-            RemainingSpawnTime = totalSpawnDelay;
-
-            while (RemainingSpawnTime > 0f)
-            {
-                RemainingSpawnTime -= Time.deltaTime;
-                yield return null;
-            }
-
-            RemainingSpawnTime = 0f;
+            float spawnDelay = GameConfig.Instance != null ? GameConfig.Instance.SpawnTime : 2.5f;
+            yield return new WaitForSeconds(spawnDelay);
 
             activePulpits.RemoveAll(item => item == null);
 

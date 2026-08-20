@@ -2,11 +2,10 @@
 using UnityEngine;
 
 /// <summary>
-/// Controls an individual pulpit platform:
-/// - Random countdown lifetime (synced with game state)
-/// - Robust URP material color lerp (supports both _BaseColor and _Color)
-/// - Single on-tile diegetic timer display at bottom-left corner
-/// - Panic pulse effect when timer < 1.5s
+/// Controls an individual platform:
+/// - Countdown lifetime that counts down reliably during active gameplay
+/// - Smooth color shift (Green -> Yellow -> Red)
+/// - Single compact countdown text at bottom-left corner with parent scale compensation
 /// </summary>
 public class Pulpit : MonoBehaviour
 {
@@ -16,17 +15,14 @@ public class Pulpit : MonoBehaviour
     [SerializeField] private Color warningColor = new Color(0.95f, 0.77f, 0.06f); // Yellow Warning
     [SerializeField] private Color criticalColor = new Color(0.91f, 0.3f, 0.24f); // Red Critical
 
-    [Header("On-Tile Timer Display (Assigned in Prefab)")]
+    [Header("On-Tile Timer Text")]
     [SerializeField] private TextMeshPro timerText;
 
-    private float lifetime;
-    private float remainingTime;
+    private float lifetime = 4.5f;
+    private float remainingTime = 4.5f;
     private bool isDestroyed = false;
     private bool hasPlayerVisited = false;
-    private bool isTimerActive = false;
     private Material runtimeMaterial;
-    private static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
-    private static readonly int ColorID = Shader.PropertyToID("_Color");
 
     private void Awake()
     {
@@ -36,35 +32,26 @@ public class Pulpit : MonoBehaviour
         if (platformRenderer != null)
             runtimeMaterial = platformRenderer.material;
 
-        // Auto-find timer text if child exists and not assigned
         if (timerText == null)
             timerText = GetComponentInChildren<TextMeshPro>();
-    }
 
-    private void OnEnable()
-    {
-        GameEvents.OnGameStart += StartCountdown;
-    }
-
-    private void OnDisable()
-    {
-        GameEvents.OnGameStart -= StartCountdown;
+        // Compensate for parent platform scaling (5, 0.5, 5) so text is not stretched or huge!
+        if (timerText != null)
+        {
+            // Position at bottom-left corner
+            timerText.transform.localPosition = new Vector3(-0.35f, 0.55f, -0.35f);
+            timerText.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            // Counteract parent (5, 0.5, 5) scale
+            timerText.transform.localScale = new Vector3(0.2f, 2.0f, 0.2f);
+            timerText.fontSize = 6f;
+            timerText.fontStyle = FontStyles.Bold;
+            timerText.alignment = TextAlignmentOptions.Center;
+        }
     }
 
     private void Start()
     {
         InitializeLifetime();
-
-        // Check if game is already active
-        if (GameManager.Instance != null && GameManager.Instance.IsPlaying)
-        {
-            isTimerActive = true;
-        }
-    }
-
-    public void StartCountdown()
-    {
-        isTimerActive = true;
     }
 
     public void InitializeLifetime()
@@ -85,14 +72,8 @@ public class Pulpit : MonoBehaviour
     {
         if (isDestroyed) return;
 
-        // Failsafe: Sync with GameManager state if event was missed
-        if (!isTimerActive && GameManager.Instance != null && GameManager.Instance.IsPlaying)
-        {
-            isTimerActive = true;
-        }
-
-        // Freeze countdown when on start menu
-        if (!isTimerActive)
+        // Only count down if game is actively playing
+        if (GameManager.Instance != null && !GameManager.Instance.IsPlaying)
         {
             UpdateTileText(remainingTime);
             return;
@@ -112,10 +93,6 @@ public class Pulpit : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Smoothly transitions platform color from Green to Yellow to Red.
-    /// Supports both URP Lit (_BaseColor) and Standard (_Color).
-    /// </summary>
     private void UpdateVisuals(float normalizedTime)
     {
         if (runtimeMaterial == null) return;
@@ -132,15 +109,17 @@ public class Pulpit : MonoBehaviour
             targetColor = Color.Lerp(warningColor, criticalColor, t);
         }
 
-        // Set color for URP Lit shader
-        if (runtimeMaterial.HasProperty(BaseColorID))
-            runtimeMaterial.SetColor(BaseColorID, targetColor);
-
-        // Fallback for standard shaders
-        if (runtimeMaterial.HasProperty(ColorID))
-            runtimeMaterial.SetColor(ColorID, targetColor);
-
-        runtimeMaterial.color = targetColor;
+        try
+        {
+            if (runtimeMaterial.HasProperty("_BaseColor"))
+                runtimeMaterial.SetColor("_BaseColor", targetColor);
+            else
+                runtimeMaterial.color = targetColor;
+        }
+        catch
+        {
+            runtimeMaterial.color = targetColor;
+        }
     }
 
     private void UpdateTileText(float timeRemaining)
@@ -150,21 +129,21 @@ public class Pulpit : MonoBehaviour
         float displaySec = Mathf.Max(0f, timeRemaining);
         timerText.text = $"{displaySec:0.00}";
 
-        // Urgent pulse & color change when time is low (< 1.5s)
+        // Color and gentle pulse when low on time
         if (displaySec < 1.5f)
         {
-            float pulse = 1f + Mathf.Sin(Time.time * 24f) * 0.15f;
-            timerText.transform.localScale = Vector3.one * pulse;
-            timerText.color = new Color(1f, 0.3f, 0.3f, 1f); // Soft Red glow
+            float pulse = 1f + Mathf.Sin(Time.time * 24f) * 0.12f;
+            timerText.transform.localScale = new Vector3(0.2f * pulse, 2.0f * pulse, 0.2f * pulse);
+            timerText.color = new Color(1f, 0.35f, 0.35f, 1f);
         }
         else if (displaySec < 2.5f)
         {
-            timerText.transform.localScale = Vector3.one;
-            timerText.color = new Color(1f, 0.9f, 0.4f, 1f); // Soft Yellow
+            timerText.transform.localScale = new Vector3(0.2f, 2.0f, 0.2f);
+            timerText.color = new Color(1f, 0.9f, 0.4f, 1f);
         }
         else
         {
-            timerText.transform.localScale = Vector3.one;
+            timerText.transform.localScale = new Vector3(0.2f, 2.0f, 0.2f);
             timerText.color = Color.white;
         }
     }
