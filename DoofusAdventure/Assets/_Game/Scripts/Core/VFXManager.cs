@@ -1,19 +1,59 @@
 ﻿using UnityEngine;
 
 /// <summary>
-/// High-performance procedural Particle VFX & Game Juice Manager:
-/// - Landing shockwaves & dust rings
-/// - Platform spawn magic rings
-/// - Platform crumble rock-dust puffs
-/// - Chrono time-rewind sparkle trails & touchdown sand bursts
-/// - Score milestone confetti bursts
+/// Fully Configurable Particle VFX & Game Juice Manager:
+/// - Platform Spawn Edge Dust: Bursts from underneath the perimeter edges of the tile!
+/// - Inspector-exposed tuning parameters (colors, sizes, speeds, particle counts)
+/// - Optional Custom Prefab / ParticleSystem slots for complete DIY customization in Inspector
 /// </summary>
 public class VFXManager : MonoBehaviour
 {
     public static VFXManager Instance { get; private set; }
 
+    [Header("--- Custom VFX Prefabs (Optional Override) ---")]
+    [Tooltip("Drop your own custom ParticleSystem prefab here if you want to override the procedural spawn puff")]
+    [SerializeField] private ParticleSystem customSpawnPuffPrefab;
+    [SerializeField] private ParticleSystem customLandingRingPrefab;
+    [SerializeField] private ParticleSystem customCrumbleDustPrefab;
+    [SerializeField] private ParticleSystem customChronoSparklePrefab;
+    [SerializeField] private ParticleSystem customMilestoneConfettiPrefab;
+
+    [Header("--- Platform Spawn Edge Particles Tuning ---")]
+    [SerializeField] private Color spawnEdgeColor = new Color(0.92f, 0.95f, 1f, 0.85f);
+    [SerializeField] private float spawnEdgeParticleSize = 0.38f;
+    [SerializeField] private float spawnEdgeParticleLifetime = 0.45f;
+    [SerializeField] private float spawnEdgeParticleSpeed = 1.6f;
+    [SerializeField] private int spawnEdgeParticleCount = 48;
+    [SerializeField] private float platformDimension = 5f; // Platform X/Z size
+
+    [Header("--- Landing Shockwave Tuning ---")]
+    [SerializeField] private Color landingColor = new Color(1f, 1f, 1f, 0.75f);
+    [SerializeField] private float landingParticleSize = 0.35f;
+    [SerializeField] private float landingParticleLifetime = 0.30f;
+    [SerializeField] private float landingParticleSpeed = 2.0f;
+    [SerializeField] private int landingParticleCount = 16;
+
+    [Header("--- Platform Crumble Dust Tuning ---")]
+    [SerializeField] private Color crumbleColor = new Color(0.85f, 0.45f, 0.35f, 0.75f);
+    [SerializeField] private float crumbleParticleSize = 0.50f;
+    [SerializeField] private float crumbleParticleLifetime = 0.55f;
+    [SerializeField] private float crumbleParticleSpeed = 3.0f;
+    [SerializeField] private int crumbleParticleCount = 32;
+
+    [Header("--- Rewind Chrono Sparkles Tuning ---")]
+    [SerializeField] private Color chronoColor = new Color(0f, 0.90f, 1f, 0.95f);
+    [SerializeField] private float chronoParticleSize = 0.25f;
+    [SerializeField] private float chronoParticleLifetime = 0.50f;
+    [SerializeField] private int chronoParticleCount = 18;
+
+    [Header("--- Milestone Confetti Tuning ---")]
+    [SerializeField] private Color confettiColor = new Color(1f, 0.85f, 0.15f, 1f);
+    [SerializeField] private float confettiParticleSize = 0.35f;
+    [SerializeField] private float confettiParticleLifetime = 0.90f;
+    [SerializeField] private int confettiParticleCount = 60;
+
     private ParticleSystem landingRingPS;
-    private ParticleSystem spawnPuffPS;
+    private ParticleSystem spawnEdgeDustPS;
     private ParticleSystem crumbleDustPS;
     private ParticleSystem chronoSparklePS;
     private ParticleSystem milestoneConfettiPS;
@@ -53,7 +93,6 @@ public class VFXManager : MonoBehaviour
 
     private void CreateDefaultParticleMaterial()
     {
-        // Find URP or standard mobile particle shader
         Shader particleShader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
         if (particleShader == null) particleShader = Shader.Find("Particles/Standard Unlit");
         if (particleShader == null) particleShader = Shader.Find("Mobile/Particles/Additive");
@@ -64,14 +103,38 @@ public class VFXManager : MonoBehaviour
 
     private void BuildProceduralParticleSystems()
     {
-        landingRingPS = CreateParticleSystem("LandingShockwave_PS", 30, new Color(0.9f, 1f, 0.9f, 0.8f), 0.35f, 0.4f, 2.5f);
-        spawnPuffPS = CreateParticleSystem("SpawnPuff_PS", 40, new Color(0.3f, 0.9f, 1f, 0.7f), 0.45f, 0.3f, 2.0f);
-        crumbleDustPS = CreateParticleSystem("CrumbleDust_PS", 50, new Color(0.85f, 0.4f, 0.3f, 0.75f), 0.6f, 0.5f, 3.5f);
-        chronoSparklePS = CreateParticleSystem("ChronoSparkle_PS", 80, new Color(0f, 0.9f, 1f, 0.9f), 0.5f, 0.25f, 1.8f);
-        milestoneConfettiPS = CreateParticleSystem("MilestoneConfetti_PS", 100, Color.yellow, 0.9f, 0.35f, 5.0f);
+        // 1. Edge perimeter dust for platform placement (Edge Box Perimeter)
+        if (customSpawnPuffPrefab != null)
+            spawnEdgeDustPS = Instantiate(customSpawnPuffPrefab, transform);
+        else
+            spawnEdgeDustPS = CreateEdgeBoxParticleSystem("PlatformSpawn_EdgeDust_PS", spawnEdgeParticleCount, spawnEdgeColor, spawnEdgeParticleLifetime, spawnEdgeParticleSize, spawnEdgeParticleSpeed, platformDimension);
+
+        // 2. Landing Shockwave
+        if (customLandingRingPrefab != null)
+            landingRingPS = Instantiate(customLandingRingPrefab, transform);
+        else
+            landingRingPS = CreateCircleParticleSystem("LandingShockwave_PS", landingParticleCount, landingColor, landingParticleLifetime, landingParticleSize, landingParticleSpeed);
+
+        // 3. Crumble Dust
+        if (customCrumbleDustPrefab != null)
+            crumbleDustPS = Instantiate(customCrumbleDustPrefab, transform);
+        else
+            crumbleDustPS = CreateCircleParticleSystem("CrumbleDust_PS", crumbleParticleCount, crumbleColor, crumbleParticleLifetime, crumbleParticleSize, crumbleParticleSpeed);
+
+        // 4. Chrono Sparkle
+        if (customChronoSparklePrefab != null)
+            chronoSparklePS = Instantiate(customChronoSparklePrefab, transform);
+        else
+            chronoSparklePS = CreateCircleParticleSystem("ChronoSparkle_PS", chronoParticleCount, chronoColor, chronoParticleLifetime, chronoParticleSize, 1.8f);
+
+        // 5. Milestone Confetti
+        if (customMilestoneConfettiPrefab != null)
+            milestoneConfettiPS = Instantiate(customMilestoneConfettiPrefab, transform);
+        else
+            milestoneConfettiPS = CreateCircleParticleSystem("MilestoneConfetti_PS", confettiParticleCount, confettiColor, confettiParticleLifetime, confettiParticleSize, 5.0f);
     }
 
-    private ParticleSystem CreateParticleSystem(string name, int maxParticles, Color color, float lifetime, float size, float speed)
+    private ParticleSystem CreateEdgeBoxParticleSystem(string name, int maxParticles, Color color, float lifetime, float size, float speed, float sizeBox)
     {
         GameObject psObj = new GameObject(name);
         psObj.transform.SetParent(transform);
@@ -81,12 +144,68 @@ public class VFXManager : MonoBehaviour
         if (psr != null && defaultParticleMaterial != null)
         {
             psr.material = defaultParticleMaterial;
+            psr.renderMode = ParticleSystemRenderMode.Billboard;
+            psr.sortingOrder = 20;
         }
 
         var main = ps.main;
         main.playOnAwake = false;
         main.loop = false;
-        main.maxParticles = maxParticles;
+        main.maxParticles = maxParticles * 2;
+        main.startLifetime = lifetime;
+        main.startSize = size;
+        main.startSpeed = speed;
+        main.startColor = color;
+        main.gravityModifier = -0.2f; // Soft upward lift
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+
+        var emission = ps.emission;
+        emission.rateOverTime = 0;
+
+        // Shape: Box Edge perimeter (X/Z edge perimeter around platform dimensions)
+        var shape = ps.shape;
+        shape.enabled = true;
+        shape.shapeType = ParticleSystemShapeType.BoxEdge;
+        shape.scale = new Vector3(sizeBox * 0.96f, 0.1f, sizeBox * 0.96f);
+
+        var sizeOverLifetime = ps.sizeOverLifetime;
+        sizeOverLifetime.enabled = true;
+        AnimationCurve sizeCurve = new AnimationCurve();
+        sizeCurve.AddKey(0f, 0.4f);
+        sizeCurve.AddKey(0.25f, 1.2f);
+        sizeCurve.AddKey(1f, 0f);
+        sizeOverLifetime.size = new ParticleSystem.MinMaxCurve(1f, sizeCurve);
+
+        var colorOverLifetime = ps.colorOverLifetime;
+        colorOverLifetime.enabled = true;
+        Gradient grad = new Gradient();
+        grad.SetKeys(
+            new GradientColorKey[] { new GradientColorKey(color, 0f), new GradientColorKey(color, 1f) },
+            new GradientAlphaKey[] { new GradientAlphaKey(color.a, 0f), new GradientAlphaKey(0f, 1f) }
+        );
+        colorOverLifetime.color = grad;
+
+        return ps;
+    }
+
+    private ParticleSystem CreateCircleParticleSystem(string name, int maxParticles, Color color, float lifetime, float size, float speed)
+    {
+        GameObject psObj = new GameObject(name);
+        psObj.transform.SetParent(transform);
+
+        ParticleSystem ps = psObj.AddComponent<ParticleSystem>();
+        ParticleSystemRenderer psr = psObj.GetComponent<ParticleSystemRenderer>();
+        if (psr != null && defaultParticleMaterial != null)
+        {
+            psr.material = defaultParticleMaterial;
+            psr.renderMode = ParticleSystemRenderMode.Billboard;
+            psr.sortingOrder = 20;
+        }
+
+        var main = ps.main;
+        main.playOnAwake = false;
+        main.loop = false;
+        main.maxParticles = maxParticles * 2;
         main.startLifetime = lifetime;
         main.startSize = size;
         main.startSpeed = speed;
@@ -97,13 +216,15 @@ public class VFXManager : MonoBehaviour
         emission.rateOverTime = 0;
 
         var shape = ps.shape;
+        shape.enabled = true;
         shape.shapeType = ParticleSystemShapeType.Circle;
         shape.radius = 0.5f;
 
         var sizeOverLifetime = ps.sizeOverLifetime;
         sizeOverLifetime.enabled = true;
         AnimationCurve sizeCurve = new AnimationCurve();
-        sizeCurve.AddKey(0f, 1f);
+        sizeCurve.AddKey(0f, 0.5f);
+        sizeCurve.AddKey(0.3f, 1.2f);
         sizeCurve.AddKey(1f, 0f);
         sizeOverLifetime.size = new ParticleSystem.MinMaxCurve(1f, sizeCurve);
 
@@ -120,21 +241,22 @@ public class VFXManager : MonoBehaviour
     }
 
     #region Trigger Methods
+    public void SpawnPlatformEdgeDust(Vector3 platformCenter)
+    {
+        if (spawnEdgeDustPS != null)
+        {
+            // Position at base of platform (Y = 0) so dust shoots up and outward from under the perimeter!
+            spawnEdgeDustPS.transform.position = new Vector3(platformCenter.x, 0.05f, platformCenter.z);
+            spawnEdgeDustPS.Emit(spawnEdgeParticleCount);
+        }
+    }
+
     public void SpawnLandingDust(Vector3 position)
     {
         if (landingRingPS != null)
         {
-            landingRingPS.transform.position = position + new Vector3(0f, 0.05f, 0f);
-            landingRingPS.Emit(18);
-        }
-    }
-
-    public void SpawnPlatformSpawnPuff(Vector3 position)
-    {
-        if (spawnPuffPS != null)
-        {
-            spawnPuffPS.transform.position = position + new Vector3(0f, 0.1f, 0f);
-            spawnPuffPS.Emit(22);
+            landingRingPS.transform.position = new Vector3(position.x, 0.28f, position.z);
+            landingRingPS.Emit(landingParticleCount);
         }
     }
 
@@ -142,8 +264,8 @@ public class VFXManager : MonoBehaviour
     {
         if (crumbleDustPS != null)
         {
-            crumbleDustPS.transform.position = position + new Vector3(0f, 0.1f, 0f);
-            crumbleDustPS.Emit(28);
+            crumbleDustPS.transform.position = new Vector3(position.x, 0.1f, position.z);
+            crumbleDustPS.Emit(crumbleParticleCount);
         }
     }
 
@@ -152,7 +274,7 @@ public class VFXManager : MonoBehaviour
         if (chronoSparklePS != null)
         {
             chronoSparklePS.transform.position = position;
-            chronoSparklePS.Emit(12);
+            chronoSparklePS.Emit(chronoParticleCount);
         }
     }
 
@@ -161,7 +283,7 @@ public class VFXManager : MonoBehaviour
         if (milestoneConfettiPS != null)
         {
             milestoneConfettiPS.transform.position = position + new Vector3(0f, 2f, 0f);
-            milestoneConfettiPS.Emit(60);
+            milestoneConfettiPS.Emit(confettiParticleCount);
         }
     }
     #endregion
@@ -176,7 +298,7 @@ public class VFXManager : MonoBehaviour
 
     private void HandlePulpitSpawned(Vector3 pos)
     {
-        SpawnPlatformSpawnPuff(pos);
+        SpawnPlatformEdgeDust(pos);
     }
 
     private void HandlePulpitDestroyed(Vector3 pos)
