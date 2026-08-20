@@ -21,7 +21,6 @@ public class CameraController : MonoBehaviour
 
     private void Awake()
     {
-        // Preset optimal isometric pitch angle
         transform.rotation = Quaternion.Euler(38f, 0f, 0f);
     }
 
@@ -39,14 +38,13 @@ public class CameraController : MonoBehaviour
 
     private void Start()
     {
-        // Auto-find Doofus if not manually assigned
         if (target == null)
         {
-            DoofusController doofus = FindFirstObjectByType<DoofusController>();
+            // Use modern Unity 6 FindAnyObjectByType to avoid CS0618 warning
+            DoofusController doofus = FindAnyObjectByType<DoofusController>();
             if (doofus != null) target = doofus.transform;
         }
 
-        // Snap immediately to target position on start
         if (target != null)
         {
             transform.position = target.position + offset;
@@ -57,15 +55,13 @@ public class CameraController : MonoBehaviour
     {
         if (target == null) return;
 
-        // Smooth follow target
         Vector3 desiredPosition = target.position + offset;
         transform.position = Vector3.Lerp(transform.position, desiredPosition, Time.deltaTime * smoothSpeed);
 
-        // Apply screen shake
         if (currentShakeIntensity > 0.01f)
         {
             shakeOffset = Random.insideUnitSphere * currentShakeIntensity;
-            shakeOffset.z = 0f; // Keep shake on screen plane
+            shakeOffset.z = 0f;
             transform.position += shakeOffset;
 
             currentShakeIntensity = Mathf.Lerp(currentShakeIntensity, 0f, Time.deltaTime * shakeDamping);
@@ -79,11 +75,11 @@ public class CameraController : MonoBehaviour
 
     private void HandlePulpitDestroyed(Vector3 pos)
     {
-        TriggerShake(0.18f); // Subtle satisfying rumble on platform collapse
+        TriggerShake(0.18f);
     }
 
     private void HandleMilestone(int milestone)
     {
-        TriggerShake(0.35f); // Juicy screen punch on milestones
+        TriggerShake(0.35f);
     }
 }

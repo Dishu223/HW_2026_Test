@@ -4,6 +4,7 @@ using UnityEngine;
 /// <summary>
 /// Cartoon procedural animator with organic inertia follow-through and overshoot:
 /// - Smooth acceleration lean and head drag
+/// - Continuous rhythmic back-and-forth head bobbing while running
 /// - Exaggerated stopping brake: body pitches forward, head whips forward with jelly spring decay
 /// - Dynamic eye expressions & landing squash
 /// </summary>
@@ -17,14 +18,16 @@ public class DoofusAnimator : MonoBehaviour
 
     [Header("Turning & Acceleration Lean")]
     [SerializeField] private float turnSpeed = 18f;
-    [SerializeField] private float runLeanBackwardAngle = 22f; // Lean back while running
-    [SerializeField] private float stopOvershootAngle = 18f;     // Pitch forward when braking
+    [SerializeField] private float runLeanBackwardAngle = 22f;
+    [SerializeField] private float stopOvershootAngle = 18f;
     [SerializeField] private float leanSmoothSpeed = 10f;
 
-    [Header("Head Spring Physics")]
-    [SerializeField] private float headRunLagDistance = 0.22f;   // Head drags back while running
-    [SerializeField] private float headStopOvershoot = 0.25f;    // Head whips forward on stop
-    [SerializeField] private float headSpringTime = 0.12f;
+    [Header("Head Movement & Continuous Running Bob")]
+    [SerializeField] private float headRunLagDistance = 0.22f;   // Base head pull-back
+    [SerializeField] private float headRunBobSpeed = 16f;        // Rhythm frequency of running bob
+    [SerializeField] private float headRunBobAmount = 0.08f;     // Back-and-forth nodding intensity
+    [SerializeField] private float headStopOvershoot = 0.25f;    // Forward whip on stop
+    [SerializeField] private float headSpringTime = 0.10f;
 
     [Header("Idle Breathing")]
     [SerializeField] private float idleBounceSpeed = 4f;
@@ -94,10 +97,9 @@ public class DoofusAnimator : MonoBehaviour
         Vector3 moveInput = controller != null ? controller.MoveInput : Vector3.zero;
         bool isMoving = moveInput.sqrMagnitude > 0.01f;
 
-        // Detect stopping moment (transition from moving to stopped)
         if (wasMovingLastFrame && !isMoving)
         {
-            stopOvershootTimer = OVERSHOOT_DURATION; // Trigger the forward brake whip
+            stopOvershootTimer = OVERSHOOT_DURATION;
         }
         wasMovingLastFrame = isMoving;
 
@@ -107,39 +109,31 @@ public class DoofusAnimator : MonoBehaviour
         }
 
         ApplyMovementAndBraking(moveInput, isMoving);
-        ApplyHeadSpringAndOvershoot(moveInput, isMoving);
+        ApplyHeadSpringAndBobbing(moveInput, isMoving);
         ApplyIdleBounce(isMoving);
     }
 
-    /// <summary>
-    /// Smoothly rotates character towards movement, leans back during run,
-    /// and pitches forward with spring damping when stopping.
-    /// </summary>
     private void ApplyMovementAndBraking(Vector3 moveInput, bool isMoving)
     {
-        // 1. Smooth rotation
         if (isMoving)
         {
             Quaternion targetLook = Quaternion.LookRotation(moveInput, Vector3.up);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetLook, Time.deltaTime * turnSpeed);
         }
 
-        // 2. Body Lean / Brake Overshoot
         if (bodyTransform != null)
         {
             Quaternion targetLean = Quaternion.identity;
 
             if (isMoving)
             {
-                // Smoothly lean back while running
                 targetLean = Quaternion.Euler(runLeanBackwardAngle, 0f, 0f);
             }
             else if (stopOvershootTimer > 0f)
             {
-                // Brake Overshoot: pitch forward with decaying spring oscillation
                 float progress = 1f - (stopOvershootTimer / OVERSHOOT_DURATION);
                 float springFactor = Mathf.Sin(progress * Mathf.PI * 2f) * (1f - progress);
-                float overshootAngle = -stopOvershootAngle * springFactor; // Negative X = pitch forward
+                float overshootAngle = -stopOvershootAngle * springFactor;
                 targetLean = Quaternion.Euler(overshootAngle, 0f, 0f);
             }
 
@@ -148,9 +142,9 @@ public class DoofusAnimator : MonoBehaviour
     }
 
     /// <summary>
-    /// Head drags backwards while moving, and whips forward on sudden stop with organic elasticity.
+    /// Handles continuous rhythmic running bobble, head pull-back, and stopping forward whip.
     /// </summary>
-    private void ApplyHeadSpringAndOvershoot(Vector3 moveInput, bool isMoving)
+    private void ApplyHeadSpringAndBobbing(Vector3 moveInput, bool isMoving)
     {
         if (headTransform == null) return;
 
@@ -158,12 +152,15 @@ public class DoofusAnimator : MonoBehaviour
 
         if (isMoving)
         {
-            // Head drags back smoothly
-            targetHeadPos = defaultHeadLocalPos + new Vector3(0f, -0.04f, -headRunLagDistance);
+            // Continuous back-and-forth nodding while running
+            float rhythmicBobZ = Mathf.Sin(Time.time * headRunBobSpeed) * headRunBobAmount;
+            float rhythmicBobY = Mathf.Abs(Mathf.Cos(Time.time * headRunBobSpeed)) * 0.04f;
+
+            targetHeadPos = defaultHeadLocalPos + new Vector3(0f, -0.03f + rhythmicBobY, -headRunLagDistance + rhythmicBobZ);
         }
         else if (stopOvershootTimer > 0f)
         {
-            // Head whips forward with decaying bounce
+            // Forward whip on stop
             float progress = 1f - (stopOvershootTimer / OVERSHOOT_DURATION);
             float springFactor = Mathf.Sin(progress * Mathf.PI * 2.5f) * (1f - progress);
             float forwardOffset = headStopOvershoot * springFactor;
@@ -173,9 +170,6 @@ public class DoofusAnimator : MonoBehaviour
         headTransform.localPosition = Vector3.SmoothDamp(headTransform.localPosition, targetHeadPos, ref headVelocity, headSpringTime);
     }
 
-    /// <summary>
-    /// Subtle breathing bounce when completely at rest.
-    /// </summary>
     private void ApplyIdleBounce(bool isMoving)
     {
         if (bodyTransform == null) return;
@@ -226,17 +220,14 @@ public class DoofusAnimator : MonoBehaviour
 
         if (normalizedTime < 0.25f)
         {
-            // Panicked state: bulging eyes with fast vibration
             scaleMultiplier = 1.75f + Mathf.Sin(Time.time * 30f) * 0.2f;
         }
         else if (normalizedTime < 0.5f)
         {
-            // Worried state
             scaleMultiplier = 1.35f;
         }
         else
         {
-            // Happy normal
             scaleMultiplier = 1f;
         }
 

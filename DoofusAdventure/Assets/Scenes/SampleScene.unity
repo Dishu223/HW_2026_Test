@@ -1054,7 +1054,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PulpitManager
   pulpitPrefab: {fileID: 4905923856047060196, guid: 8fd4f4b791f5659428841885ea9a6b61, type: 3}
-  platformSize: 9
+  platformSize: 5
 --- !u!4 &1884341824
 Transform:
   m_ObjectHideFlags: 0
