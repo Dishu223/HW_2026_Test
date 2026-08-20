@@ -1,37 +1,55 @@
 ﻿using UnityEngine;
 
 /// <summary>
-/// Dual-Mode Dynamic Audio & Sound Engine:
-/// - Priority 1: Plays custom AudioClips assigned in Inspector
-/// - Priority 2 (Fallback): Procedurally synthesizes crisp 44.1kHz sound waves on the fly
+/// Comprehensive Audio & Music Engine for Doofus Adventure:
+/// - Left & Right footstep audio slots (for alternating Boop sounds!)
+/// - Start Screen / Lobby Background Music
+/// - In-Game Gameplay Background Music (stops on gameover, slow-mo warped during rewind)
+/// - Victory Fanfare for 50-pulpit completion
+/// - Complete SFX suite with procedural fallbacks
 /// </summary>
 public class SoundManager : MonoBehaviour
 {
     public static SoundManager Instance { get; private set; }
 
-    [Header("Custom Audio Clips (Optional - Drop your custom SFX here!)")]
-    [SerializeField] private AudioClip customFootstepClip;
+    [Header("Music Tracks (BGM)")]
+    [Tooltip("Looping music playing on Start Screen and Lobby")]
+    [SerializeField] private AudioClip startScreenBGMClip;
+
+    [Tooltip("Looping high-energy music playing during active gameplay")]
+    [SerializeField] private AudioClip inGameBGMClip;
+
+    [Header("Footsteps (Left / Right Alternating Boops!)")]
+    [SerializeField] private AudioClip customFootstepLeftClip;
+    [SerializeField] private AudioClip customFootstepRightClip;
+
+    [Header("Gameplay SFX")]
     [SerializeField] private AudioClip customLandingClip;
     [SerializeField] private AudioClip customShatterClip;
     [SerializeField] private AudioClip customRewindClip;
     [SerializeField] private AudioClip customResumeClip;
     [SerializeField] private AudioClip customMilestoneClip;
+    [SerializeField] private AudioClip customVictoryClip;
     [SerializeField] private AudioClip customGameOverClip;
 
     [Header("Volume Controls")]
     [Range(0f, 1f)] [SerializeField] private float masterVolume = 0.85f;
+    [Range(0f, 1f)] [SerializeField] private float bgmVolume = 0.65f;
     [Range(0f, 1f)] [SerializeField] private float sfxVolume = 0.90f;
 
+    private AudioSource bgmSource;
     private AudioSource sfxSource;
     private AudioSource loopingRewindSource;
 
-    // Procedural Fallback Clips Cache
-    private AudioClip procFootstepClip;
+    // Procedural Fallbacks
+    private AudioClip procFootstepLeftClip;
+    private AudioClip procFootstepRightClip;
     private AudioClip procLandingClip;
     private AudioClip procShatterClip;
     private AudioClip procRewindClip;
     private AudioClip procResumeClip;
     private AudioClip procMilestoneClip;
+    private AudioClip procVictoryClip;
     private AudioClip procGameOverClip;
 
     private void Awake()
@@ -47,11 +65,22 @@ public class SoundManager : MonoBehaviour
         GenerateProceduralFallbackClips();
     }
 
+    private void Start()
+    {
+        // Play start screen music on boot
+        PlayStartScreenBGM();
+    }
+
     private void SetupAudioSources()
     {
+        bgmSource = gameObject.AddComponent<AudioSource>();
+        bgmSource.playOnAwake = false;
+        bgmSource.loop = true;
+        bgmSource.spatialBlend = 0f;
+
         sfxSource = gameObject.AddComponent<AudioSource>();
         sfxSource.playOnAwake = false;
-        sfxSource.spatialBlend = 0f; // 2D crisp audio
+        sfxSource.spatialBlend = 0f;
 
         loopingRewindSource = gameObject.AddComponent<AudioSource>();
         loopingRewindSource.playOnAwake = false;
@@ -61,37 +90,93 @@ public class SoundManager : MonoBehaviour
 
     private void OnEnable()
     {
+        GameEvents.OnGameStart += HandleGameStart;
+        GameEvents.OnGameRestart += HandleGameStart;
+        GameEvents.OnReturnToLobby += HandleReturnToLobby;
+        GameEvents.OnGameOver += HandleGameOver;
+
         GameEvents.OnPulpitLanded += HandlePulpitLanded;
         GameEvents.OnPulpitDestroyed += HandlePulpitDestroyed;
         GameEvents.OnRewindStart += HandleRewindStart;
         GameEvents.OnRewindReadyToResume += HandleRewindReadyToResume;
         GameEvents.OnRewindComplete += HandleRewindComplete;
         GameEvents.OnMilestoneReached += HandleMilestoneReached;
-        GameEvents.OnGameOver += HandleGameOver;
     }
 
     private void OnDisable()
     {
+        GameEvents.OnGameStart -= HandleGameStart;
+        GameEvents.OnGameRestart -= HandleGameStart;
+        GameEvents.OnReturnToLobby -= HandleReturnToLobby;
+        GameEvents.OnGameOver -= HandleGameOver;
+
         GameEvents.OnPulpitLanded -= HandlePulpitLanded;
         GameEvents.OnPulpitDestroyed -= HandlePulpitDestroyed;
         GameEvents.OnRewindStart -= HandleRewindStart;
         GameEvents.OnRewindReadyToResume -= HandleRewindReadyToResume;
         GameEvents.OnRewindComplete -= HandleRewindComplete;
         GameEvents.OnMilestoneReached -= HandleMilestoneReached;
-        GameEvents.OnGameOver -= HandleGameOver;
     }
 
-    #region Public Play Methods
-    public void PlayFootstep()
+    #region Music (BGM) Controls
+    public void PlayStartScreenBGM()
     {
-        AudioClip clip = customFootstepClip != null ? customFootstepClip : procFootstepClip;
-        if (clip != null && sfxSource != null)
+        if (startScreenBGMClip != null && bgmSource != null)
         {
-            sfxSource.pitch = Random.Range(0.92f, 1.08f); // Natural step variation
-            sfxSource.PlayOneShot(clip, 0.40f * masterVolume * sfxVolume);
+            if (bgmSource.clip == startScreenBGMClip && bgmSource.isPlaying) return;
+            bgmSource.clip = startScreenBGMClip;
+            bgmSource.volume = bgmVolume * masterVolume;
+            bgmSource.pitch = 1.0f;
+            bgmSource.Play();
+        }
+        else if (bgmSource != null && bgmSource.clip != startScreenBGMClip)
+        {
+            bgmSource.Stop();
         }
     }
 
+    public void PlayInGameBGM()
+    {
+        if (inGameBGMClip != null && bgmSource != null)
+        {
+            bgmSource.clip = inGameBGMClip;
+            bgmSource.volume = bgmVolume * masterVolume;
+            bgmSource.pitch = 1.0f;
+            bgmSource.Play();
+        }
+    }
+
+    public void StopBGM()
+    {
+        if (bgmSource != null && bgmSource.isPlaying)
+        {
+            bgmSource.Stop();
+        }
+    }
+    #endregion
+
+    #region Footstep SFX (Alternating Left / Right)
+    public void PlayFootstep(bool isLeft)
+    {
+        AudioClip clip;
+        if (isLeft)
+        {
+            clip = customFootstepLeftClip != null ? customFootstepLeftClip : procFootstepLeftClip;
+        }
+        else
+        {
+            clip = customFootstepRightClip != null ? customFootstepRightClip : procFootstepRightClip;
+        }
+
+        if (clip != null && sfxSource != null)
+        {
+            sfxSource.pitch = Random.Range(0.95f, 1.05f);
+            sfxSource.PlayOneShot(clip, 0.45f * masterVolume * sfxVolume);
+        }
+    }
+    #endregion
+
+    #region Gameplay SFX
     public void PlayLandingChime()
     {
         AudioClip clip = customLandingClip != null ? customLandingClip : procLandingClip;
@@ -151,6 +236,16 @@ public class SoundManager : MonoBehaviour
         }
     }
 
+    public void PlayVictoryFanfare()
+    {
+        AudioClip clip = customVictoryClip != null ? customVictoryClip : procVictoryClip;
+        if (clip != null && sfxSource != null)
+        {
+            sfxSource.pitch = 1.0f;
+            sfxSource.PlayOneShot(clip, 1.0f * masterVolume * sfxVolume);
+        }
+    }
+
     public void PlayGameOverTone()
     {
         AudioClip clip = customGameOverClip != null ? customGameOverClip : procGameOverClip;
@@ -163,36 +258,78 @@ public class SoundManager : MonoBehaviour
     #endregion
 
     #region Event Handlers
+    private void HandleGameStart()
+    {
+        PlayInGameBGM();
+    }
+
+    private void HandleReturnToLobby()
+    {
+        PlayStartScreenBGM();
+    }
+
+    private void HandleGameOver()
+    {
+        StopBGM();
+        StopRewindWhoosh();
+        PlayGameOverTone();
+    }
+
     private void HandlePulpitLanded() => PlayLandingChime();
     private void HandlePulpitDestroyed(Vector3 pos) => PlayShatterCrunch();
-    private void HandleRewindStart() => PlayRewindWhoosh();
+
+    private void HandleRewindStart()
+    {
+        PlayRewindWhoosh();
+        if (bgmSource != null) bgmSource.pitch = 0.5f; // Slow-mo tape pitch
+    }
+
     private void HandleRewindReadyToResume()
     {
         StopRewindWhoosh();
         PlayResumeChime();
     }
-    private void HandleRewindComplete() => StopRewindWhoosh();
-    private void HandleMilestoneReached(int score) => PlayMilestoneFanfare();
-    private void HandleGameOver()
+
+    private void HandleRewindComplete()
     {
         StopRewindWhoosh();
-        PlayGameOverTone();
+        if (bgmSource != null) bgmSource.pitch = 1.0f; // Restore normal pitch
+    }
+
+    private void HandleMilestoneReached(int score)
+    {
+        if (score >= 50)
+        {
+            PlayVictoryFanfare();
+        }
+        else
+        {
+            PlayMilestoneFanfare();
+        }
     }
     #endregion
 
-    #region Procedural Audio Synthesizer (PCM Wave Synthesis)
+    #region Procedural Audio Synthesizer Fallbacks
     private void GenerateProceduralFallbackClips()
     {
-        procFootstepClip = CreateSynthClip("Footstep_Proc", 0.08f, (t) => {
-            float env = Mathf.Exp(-t * 45f);
-            float freq = Mathf.Lerp(220f, 90f, t / 0.08f);
+        // Boop 1 (Left Foot: 260Hz -> 140Hz)
+        procFootstepLeftClip = CreateSynthClip("Footstep_Left_Proc", 0.07f, (t) => {
+            float env = Mathf.Exp(-t * 50f);
+            float freq = Mathf.Lerp(260f, 140f, t / 0.07f);
+            return Mathf.Sin(2f * Mathf.PI * freq * t) * env;
+        });
+
+        // Boop 2 (Right Foot: 310Hz -> 180Hz - slightly higher pitch boop!)
+        procFootstepRightClip = CreateSynthClip("Footstep_Right_Proc", 0.07f, (t) => {
+            float env = Mathf.Exp(-t * 50f);
+            float freq = Mathf.Lerp(310f, 180f, t / 0.07f);
             return Mathf.Sin(2f * Mathf.PI * freq * t) * env;
         });
 
         procLandingClip = CreateSynthClip("Landing_Proc", 0.22f, (t) => {
             float env = Mathf.Exp(-t * 12f);
-            float note1 = Mathf.Sin(2f * Mathf.PI * 523.25f * t); // C5
-            float note2 = Mathf.Sin(2f * Mathf.PI * 659.25f * t); // E5
+            float note1 = Mathf.Sin(2f * Mathf.PI * 523.25f * t);
+            float note2 = Mathf.Sin(2f * Mathf.PI * 659.25f * t);
             return (note1 * 0.6f + note2 * 0.4f) * env;
         });
 
@@ -207,8 +344,7 @@ public class SoundManager : MonoBehaviour
             float progress = t / 1.2f;
             float freq = Mathf.Lerp(180f, 720f, progress);
             float modulation = Mathf.Sin(2f * Mathf.PI * 35f * t) * 0.3f;
-            float wave = Mathf.Sin(2f * Mathf.PI * (freq + modulation * 100f) * t);
-            return wave * 0.7f;
+            return Mathf.Sin(2f * Mathf.PI * (freq + modulation * 100f) * t) * 0.7f;
         });
 
         procResumeClip = CreateSynthClip("Resume_Proc", 0.18f, (t) => {
@@ -219,11 +355,18 @@ public class SoundManager : MonoBehaviour
 
         procMilestoneClip = CreateSynthClip("Milestone_Proc", 0.55f, (t) => {
             float env = Mathf.Exp(-t * 4f);
-            float freq;
-            if (t < 0.15f) freq = 523.25f; // C5
-            else if (t < 0.30f) freq = 659.25f; // E5
-            else freq = 783.99f; // G5
+            float freq = (t < 0.15f) ? 523.25f : (t < 0.30f) ? 659.25f : 783.99f;
             return Mathf.Sin(2f * Mathf.PI * freq * t) * env;
+        });
+
+        // 50-Pulpit Victory Grand Chord
+        procVictoryClip = CreateSynthClip("Victory_Proc", 1.2f, (t) => {
+            float env = Mathf.Exp(-t * 2f);
+            float n1 = Mathf.Sin(2f * Mathf.PI * 523.25f * t); // C5
+            float n2 = Mathf.Sin(2f * Mathf.PI * 659.25f * t); // E5
+            float n3 = Mathf.Sin(2f * Mathf.PI * 783.99f * t); // G5
+            float n4 = Mathf.Sin(2f * Mathf.PI * 1046.50f * t); // C6
+            return (n1 * 0.3f + n2 * 0.25f + n3 * 0.25f + n4 * 0.2f) * env;
         });
 
         procGameOverClip = CreateSynthClip("GameOver_Proc", 0.65f, (t) => {

@@ -2,14 +2,14 @@
 using UnityEngine;
 
 /// <summary>
-/// 3D Cartoon Dust Puff & Footstep Audio Engine:
-/// - Spawns delicate cartoon dust puffs
-/// - Plays dynamic footstep audio taps via SoundManager
+/// 3D Cartoon Dust Puff & Left/Right Footstep Audio Engine:
+/// - Spawns delicate cartoon dust puffs alternating left/right heels
+/// - Plays alternating Left / Right Boop sounds via SoundManager
 /// </summary>
 public class DoofusLocomotionVFX : MonoBehaviour
 {
     [Header("Locomotion Tuning")]
-    [SerializeField] private float stepInterval = 0.14f;
+    [SerializeField] private float stepInterval = 0.13f;
 
     private class ActivePuff
     {
@@ -86,10 +86,10 @@ public class DoofusLocomotionVFX : MonoBehaviour
                 stepTimer = 0f;
                 SpawnRunningPuff();
 
-                // Trigger footstep sound!
+                // Trigger alternating Left / Right Boop sound!
                 if (SoundManager.Instance != null)
                 {
-                    SoundManager.Instance.PlayFootstep();
+                    SoundManager.Instance.PlayFootstep(isLeftFoot);
                 }
             }
         }

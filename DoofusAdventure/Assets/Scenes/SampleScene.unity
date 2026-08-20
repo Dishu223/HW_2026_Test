@@ -1325,6 +1325,59 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1169098387}
   m_CullTransparentMesh: 1
+--- !u!1 &1212819719
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1212819721}
+  - component: {fileID: 1212819720}
+  m_Layer: 0
+  m_Name: SoundManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1212819720
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1212819719}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ea26e470bb5dc074ea547f6047a4a9fe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SoundManager
+  customFootstepClip: {fileID: 0}
+  customLandingClip: {fileID: 0}
+  customShatterClip: {fileID: 0}
+  customRewindClip: {fileID: 0}
+  customResumeClip: {fileID: 0}
+  customMilestoneClip: {fileID: 0}
+  customGameOverClip: {fileID: 0}
+  masterVolume: 0.85
+  sfxVolume: 0.9
+--- !u!4 &1212819721
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1212819719}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.12176, y: 2.97534, z: -0.48495}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1221665386
 GameObject:
   m_ObjectHideFlags: 0
@@ -2702,3 +2755,4 @@ SceneRoots:
   - {fileID: 1221665389}
   - {fileID: 2304661545009157982}
   - {fileID: 1317987139}
+  - {fileID: 1212819721}
