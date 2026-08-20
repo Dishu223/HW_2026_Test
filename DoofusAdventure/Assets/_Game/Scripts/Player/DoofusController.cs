@@ -3,13 +3,13 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// Controls Doofus physics movement and detects fatal falls.
-/// Intercepts fall with Prince of Persia Time Rewind with landing grace protection.
+/// Intercepts fall with Prince of Persia Time Rewind, placing Doofus safely on the nearest platform.
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
 public class DoofusController : MonoBehaviour
 {
     [Header("Fall Detection")]
-    [SerializeField] private float fallThresholdY = -2.5f;
+    [SerializeField] private float fallThresholdY = -1.5f;
 
     private Rigidbody rb;
     private Vector3 moveInput;
@@ -72,17 +72,15 @@ public class DoofusController : MonoBehaviour
 
         moveInput = ReadKeyboardInput();
 
-        // Detect fatal fall (only when grace cooldown has elapsed)
+        // Fall detection (only checked outside grace period)
         if (fallGraceCooldown <= 0f && transform.position.y < fallThresholdY)
         {
             if (RewindManager.Instance != null && RewindManager.Instance.CanRewind)
             {
-                // Prince of Persia Time Rewind!
                 RewindManager.Instance.TriggerRewind();
             }
             else
             {
-                // Out of rewind charges -> Game Over!
                 GameEvents.TriggerDoofusFell();
             }
         }
@@ -160,8 +158,7 @@ public class DoofusController : MonoBehaviour
     {
         isRewinding = false;
         isInputActive = true;
-        // Grant 1.5s grace period so player lands safely without re-triggering fall
-        fallGraceCooldown = 1.5f;
+        fallGraceCooldown = 2.0f; // 2 seconds safety grace period!
 
         if (rb != null)
         {
@@ -170,13 +167,35 @@ public class DoofusController : MonoBehaviour
             rb.angularVelocity = Vector3.zero;
         }
 
-        // Ensure player is safely above the platform surface
-        if (transform.position.y < 0.8f)
+        // Find closest active platform and guarantee safe grounded landing
+        Pulpit[] pulpits = FindObjectsByType<Pulpit>(FindObjectsSortMode.None);
+        Pulpit closestPulpit = null;
+        float minDst = float.MaxValue;
+
+        foreach (Pulpit p in pulpits)
         {
-            Vector3 pos = transform.position;
-            pos.y = 1.0f;
-            transform.position = pos;
-            if (rb != null) rb.position = pos;
+            if (p != null && !p.IsDestroyed)
+            {
+                float dst = Vector3.Distance(transform.position, p.transform.position);
+                if (dst < minDst)
+                {
+                    minDst = dst;
+                    closestPulpit = p;
+                }
+            }
+        }
+
+        if (closestPulpit != null)
+        {
+            Vector3 safePos = closestPulpit.transform.position + new Vector3(0f, 1.0f, 0f);
+            transform.position = safePos;
+            if (rb != null) rb.position = safePos;
+        }
+        else
+        {
+            Vector3 safePos = new Vector3(transform.position.x, 1.0f, transform.position.z);
+            transform.position = safePos;
+            if (rb != null) rb.position = safePos;
         }
     }
     #endregion

@@ -5,10 +5,8 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// Self-contained Game Over screen:
-/// - Uses CanvasGroup visibility so event subscriptions are always active in memory
-/// - Automatically fades in when Doofus falls
-/// - Counting-up score ticker and best score
-/// - Restarts game on 'R' key, Space, or Click
+/// - Fades in cleanly when GameOver occurs
+/// - Protects against accidental immediate restart from held space/mouse keys
 /// </summary>
 [RequireComponent(typeof(CanvasGroup))]
 public class GameOverUI : MonoBehaviour
@@ -21,7 +19,7 @@ public class GameOverUI : MonoBehaviour
 
     private CanvasGroup canvasGroup;
     private Coroutine scoreTickerRoutine;
-    private float activationCooldown = 0.3f;
+    private float activationCooldown = 0.6f;
     private float timer = 0f;
     private bool isGameOverActive = false;
 
@@ -87,14 +85,14 @@ public class GameOverUI : MonoBehaviour
         if (!isGameOverActive) return;
 
         timer += Time.unscaledDeltaTime;
-        if (timer < activationCooldown) return;
+        if (timer < activationCooldown) return; // Strict cooldown so held keys don't restart immediately!
 
         if (restartPromptText != null)
         {
             restartPromptText.alpha = 0.4f + Mathf.PingPong(Time.unscaledTime * 2.5f, 0.6f);
         }
 
-        // Restart on R key, Space, Enter, or Click
+        // Restart only when key was pressed THIS frame after cooldown
         bool rPressed = Keyboard.current != null && (Keyboard.current.rKey.wasPressedThisFrame || Keyboard.current.spaceKey.wasPressedThisFrame || Keyboard.current.enterKey.wasPressedThisFrame);
         bool mouseClicked = Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
 
