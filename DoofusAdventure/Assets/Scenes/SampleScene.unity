@@ -226,11 +226,33 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
+--- !u!1 &253212684 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 7629819073217988060, guid: c50922f52fa96ba48b2f21ca4eec05bd, type: 3}
+  m_PrefabInstance: {fileID: 2304661545009157982}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &253212686 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 466527329281702740, guid: c50922f52fa96ba48b2f21ca4eec05bd, type: 3}
   m_PrefabInstance: {fileID: 2304661545009157982}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &253212690
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 253212684}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 795402e5e3eb0ca469e7be537ad14aaf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DoofusLocomotionVFX
+  footstepParticles: {fileID: 0}
+  skidParticles: {fileID: 0}
+  stepInterval: 0.18
+  dustPerStep: 2
+  dustPerSkid: 8
 --- !u!1 &330585543
 GameObject:
   m_ObjectHideFlags: 0
@@ -2664,9 +2686,13 @@ PrefabInstance:
       value: Doofus
       objectReference: {fileID: 0}
     m_RemovedComponents: []
-    m_RemovedGameObjects: []
+    m_RemovedGameObjects:
+    - {fileID: 8359876636563239263, guid: c50922f52fa96ba48b2f21ca4eec05bd, type: 3}
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 7629819073217988060, guid: c50922f52fa96ba48b2f21ca4eec05bd, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 253212690}
   m_SourcePrefab: {fileID: 100100000, guid: c50922f52fa96ba48b2f21ca4eec05bd, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

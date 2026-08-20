@@ -388,9 +388,15 @@ MonoBehaviour:
   headTransform: {fileID: 2606793171441374861}
   leftEyeTransform: {fileID: 3345532447462487184}
   rightEyeTransform: {fileID: 8211078417333357779}
-  maxLeanAngle: 18
+  turnSpeed: 18
+  runLeanBackwardAngle: 22
+  stopOvershootAngle: 18
   leanSmoothSpeed: 12
-  headLagSpeed: 14
+  headRunLagDistance: 0.22
+  headRunBobSpeed: 16
+  headRunBobAmount: 0.08
+  headStopOvershoot: 0.25
+  headSpringTime: 0.1
   idleBounceSpeed: 3.5
   idleBounceHeight: 0.06
   squashAmount: 0.78
