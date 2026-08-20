@@ -47,7 +47,6 @@ public class DoofusAnimator : MonoBehaviour
     private float stopOvershootTimer = 0f;
     private const float OVERSHOOT_DURATION = 0.35f;
 
-    // Eye animation state
     private float nextBlinkTime = 2.0f;
     private float blinkTimer = 0f;
     private bool isBlinking = false;
@@ -105,11 +104,10 @@ public class DoofusAnimator : MonoBehaviour
         Vector3 moveInput = controller != null ? controller.MoveInput : Vector3.zero;
         bool isMoving = moveInput.sqrMagnitude > 0.01f;
 
-        // Detect stopping moment (transition from moving to stopped)
         if (wasMovingLastFrame && !isMoving)
         {
             stopOvershootTimer = OVERSHOOT_DURATION;
-            TriggerBlink(0.20f); // High-visibility cute stop-blink!
+            TriggerBlink(0.20f);
         }
         wasMovingLastFrame = isMoving;
 
@@ -188,7 +186,6 @@ public class DoofusAnimator : MonoBehaviour
     {
         if (leftEyeTransform == null || rightEyeTransform == null || isFalling) return;
 
-        // Handle periodic idle blinking timer
         if (!isMoving && !isBlinking)
         {
             blinkTimer += Time.deltaTime;
@@ -204,10 +201,8 @@ public class DoofusAnimator : MonoBehaviour
             blinkTimer = 0f;
         }
 
-        // If blinking right now, let the coroutine control scale directly
         if (isBlinking) return;
 
-        // Base Scale Multiplier
         float scaleMultiplier = 1f;
 
         if (currentPulpitTimer < 0.25f)
@@ -220,7 +215,6 @@ public class DoofusAnimator : MonoBehaviour
         }
         else if (isMoving)
         {
-            // Wide excited eyes while running!
             scaleMultiplier = 1.45f;
         }
         else
@@ -241,25 +235,17 @@ public class DoofusAnimator : MonoBehaviour
         blinkRoutine = StartCoroutine(HighVisibilityBlinkCoroutine(duration));
     }
 
-    /// <summary>
-    /// Highly visible 3-phase cartoon blink:
-    /// Phase 1: Squashes Y down to 0.015 and widens X to 1.5x (classic cartoon eyelid slit line)
-    /// Phase 2: Holds closed for 0.05s so the eye registers clearly
-    /// Phase 3: Pops open with a cute bouncy spring overshoot!
-    /// </summary>
     private IEnumerator HighVisibilityBlinkCoroutine(float totalDuration)
     {
         isBlinking = true;
 
         Vector3 openScale = leftEyeTransform != null ? leftEyeTransform.localScale : defaultEyeScale;
-        // Closed eye: flat horizontal line slit
         Vector3 closedSlitScale = new Vector3(defaultEyeScale.x * 1.5f, 0.02f, defaultEyeScale.z * 1.1f);
 
         float closeTime = totalDuration * 0.35f;
         float holdTime = totalDuration * 0.25f;
         float openTime = totalDuration * 0.40f;
 
-        // 1. Close down to slit
         float elapsed = 0f;
         while (elapsed < closeTime)
         {
@@ -270,17 +256,14 @@ public class DoofusAnimator : MonoBehaviour
         }
         SetEyeScale(closedSlitScale);
 
-        // 2. Hold closed momentarily for clear visual recognition
         yield return new WaitForSeconds(holdTime);
 
-        // 3. Pop open with slight spring overshoot
         Vector3 overshootScale = new Vector3(openScale.x * 0.95f, openScale.y * 1.25f, openScale.z);
         elapsed = 0f;
         while (elapsed < openTime)
         {
             elapsed += Time.deltaTime;
             float t = elapsed / openTime;
-            // Spring curve
             Vector3 s = t < 0.6f 
                 ? Vector3.Lerp(closedSlitScale, overshootScale, t / 0.6f) 
                 : Vector3.Lerp(overshootScale, openScale, (t - 0.6f) / 0.4f);
@@ -353,7 +336,7 @@ public class DoofusAnimator : MonoBehaviour
     private void HandleGameStart()
     {
         isFalling = false;
-        transform.localRotation = Quaternion.identity;
+        transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
         transform.localScale = Vector3.one;
 
         if (leftEyeTransform != null) leftEyeTransform.localScale = defaultEyeScale;

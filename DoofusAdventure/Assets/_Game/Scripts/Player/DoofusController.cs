@@ -3,7 +3,7 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// Controls Doofus physics-based movement using Unity's New Input System.
-/// Handles position reset on restart and respects game states.
+/// Default rotation faces camera (180 degrees).
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
 public class DoofusController : MonoBehaviour
@@ -24,11 +24,13 @@ public class DoofusController : MonoBehaviour
         rb = GetComponent<Rigidbody>();
         rb.freezeRotation = true;
         rb.useGravity = true;
+
+        // Face camera at start (Y rotation = 180)
+        transform.rotation = Quaternion.Euler(0f, 180f, 0f);
     }
 
     private void Start()
     {
-        // Sync input state on start
         if (GameManager.Instance != null)
         {
             isInputActive = GameManager.Instance.IsPlaying;
@@ -110,7 +112,7 @@ public class DoofusController : MonoBehaviour
             rb.angularVelocity = Vector3.zero;
             rb.position = new Vector3(0f, 1f, 0f);
             transform.position = new Vector3(0f, 1f, 0f);
-            transform.rotation = Quaternion.identity;
+            transform.rotation = Quaternion.Euler(0f, 180f, 0f);
         }
     }
 
@@ -128,6 +130,7 @@ public class DoofusController : MonoBehaviour
         {
             rb.linearVelocity = Vector3.zero;
             rb.position = new Vector3(0f, 1f, 0f);
+            transform.rotation = Quaternion.Euler(0f, 180f, 0f);
         }
     }
 
