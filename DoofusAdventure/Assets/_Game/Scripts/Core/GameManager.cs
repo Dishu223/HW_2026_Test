@@ -6,7 +6,23 @@
 /// </summary>
 public class GameManager : MonoBehaviour
 {
-    public static GameManager Instance { get; private set; }
+    private static GameManager instance;
+    public static GameManager Instance
+    {
+        get
+        {
+            if (instance == null)
+            {
+                instance = FindAnyObjectByType<GameManager>();
+                if (instance == null)
+                {
+                    GameObject go = new GameObject("GameManager");
+                    instance = go.AddComponent<GameManager>();
+                }
+            }
+            return instance;
+        }
+    }
 
     public enum GameState
     {
@@ -25,13 +41,13 @@ public class GameManager : MonoBehaviour
 
     private void Awake()
     {
-        if (Instance != null && Instance != this)
+        if (instance != null && instance != this)
         {
             Destroy(gameObject);
             return;
         }
 
-        Instance = this;
+        instance = this;
         DontDestroyOnLoad(gameObject);
     }
 

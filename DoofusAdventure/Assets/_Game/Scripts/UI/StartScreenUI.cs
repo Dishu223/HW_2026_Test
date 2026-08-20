@@ -4,8 +4,9 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// Simple, self-contained Start Screen controller:
-/// - Floats title and pulses prompt
-/// - When player presses Space or clicks, launches game and hides itself
+/// - Freezes game time on Awake (Time.timeScale = 0)
+/// - Floats title and pulses prompt using unscaledTime
+/// - When player presses Space or clicks, launches game, unpauses (Time.timeScale = 1), and hides itself
 /// </summary>
 public class StartScreenUI : MonoBehaviour
 {
@@ -15,15 +16,21 @@ public class StartScreenUI : MonoBehaviour
 
     private float initialTitleY;
 
+    private void Awake()
+    {
+        Time.timeScale = 0f; // Freeze game when Start Screen is alive!
+    }
+
     private void Start()
     {
+        Time.timeScale = 0f;
         if (titleText != null)
             initialTitleY = titleText.rectTransform.anchoredPosition.y;
     }
 
     private void Update()
     {
-        // Gentle title float
+        // Gentle title float (runs on unscaledTime so it animates while paused)
         if (titleText != null)
         {
             float newY = initialTitleY + Mathf.Sin(Time.unscaledTime * 3f) * 10f;
@@ -51,6 +58,9 @@ public class StartScreenUI : MonoBehaviour
     {
         Debug.Log("[StartScreenUI] Launching Game!");
 
+        // Unpause game
+        Time.timeScale = 1f;
+
         if (GameManager.Instance != null)
         {
             GameManager.Instance.SetState(GameManager.GameState.Playing);
@@ -60,7 +70,7 @@ public class StartScreenUI : MonoBehaviour
             GameEvents.TriggerGameStart();
         }
 
-        // Hide this panel immediately
+        // Hide start screen
         gameObject.SetActive(false);
     }
 }
