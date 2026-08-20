@@ -3,9 +3,9 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Calm, atmospheric Prince of Persia Time Rewind overlay:
-/// - Soft, cinematic cyan/gold vignette with smooth fade transitions
-/// - Clean, legible typography without aggressive flashing or strobing
+/// Controls the Prince of Persia Time Rewind & Resume overlay:
+/// - "⏪ REWINDING TIME" during reverse flight
+/// - "► PRESS WASD OR SPACE TO RESUME ◄" when safely landed
 /// </summary>
 [RequireComponent(typeof(CanvasGroup))]
 public class RewindScreenUI : MonoBehaviour
@@ -15,8 +15,9 @@ public class RewindScreenUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI rewindBannerText;
 
     private CanvasGroup canvasGroup;
-    private bool isRewindScreenActive = false;
-    private float fadeSpeed = 4f;
+    private bool isOverlayActive = false;
+    private bool isReadyToResume = false;
+    private float fadeSpeed = 5f;
 
     private void Awake()
     {
@@ -28,33 +29,52 @@ public class RewindScreenUI : MonoBehaviour
 
     private void OnEnable()
     {
-        GameEvents.OnRewindStart += ShowRewindOverlay;
-        GameEvents.OnRewindComplete += HideRewindOverlay;
+        GameEvents.OnRewindStart += HandleRewindStart;
+        GameEvents.OnRewindReadyToResume += HandleReadyToResume;
+        GameEvents.OnRewindComplete += HandleRewindComplete;
         GameEvents.OnGameStart += HideImmediate;
         GameEvents.OnGameOver += HideImmediate;
     }
 
     private void OnDisable()
     {
-        GameEvents.OnRewindStart -= ShowRewindOverlay;
-        GameEvents.OnRewindComplete -= HideRewindOverlay;
+        GameEvents.OnRewindStart -= HandleRewindStart;
+        GameEvents.OnRewindReadyToResume -= HandleReadyToResume;
+        GameEvents.OnRewindComplete -= HandleRewindComplete;
         GameEvents.OnGameStart -= HideImmediate;
         GameEvents.OnGameOver -= HideImmediate;
     }
 
-    private void ShowRewindOverlay()
+    private void HandleRewindStart()
     {
-        isRewindScreenActive = true;
+        isOverlayActive = true;
+        isReadyToResume = false;
+        if (rewindBannerText != null)
+        {
+            rewindBannerText.text = "⏪ REWINDING TIME ⏪";
+        }
     }
 
-    private void HideRewindOverlay()
+    private void HandleReadyToResume()
     {
-        isRewindScreenActive = false;
+        isOverlayActive = true;
+        isReadyToResume = true;
+        if (rewindBannerText != null)
+        {
+            rewindBannerText.text = "► PRESS WASD OR SPACE TO RESUME ◄";
+        }
+    }
+
+    private void HandleRewindComplete()
+    {
+        isOverlayActive = false;
+        isReadyToResume = false;
     }
 
     public void HideImmediate()
     {
-        isRewindScreenActive = false;
+        isOverlayActive = false;
+        isReadyToResume = false;
         if (canvasGroup != null)
         {
             canvasGroup.alpha = 0f;
@@ -66,23 +86,31 @@ public class RewindScreenUI : MonoBehaviour
     {
         if (canvasGroup == null) return;
 
-        // Smooth non-jarring fade in and fade out
-        float targetAlpha = isRewindScreenActive ? 1f : 0f;
+        float targetAlpha = isOverlayActive ? 1f : 0f;
         canvasGroup.alpha = Mathf.MoveTowards(canvasGroup.alpha, targetAlpha, Time.unscaledDeltaTime * fadeSpeed);
         canvasGroup.blocksRaycasts = false;
 
         if (canvasGroup.alpha > 0.01f)
         {
-            // Calm, slow atmospheric ambient breathing (no strobing)
             if (vignetteOverlayImage != null)
             {
-                float breathe = 0.35f + Mathf.Sin(Time.unscaledTime * 2f) * 0.08f;
+                float breathe = isReadyToResume 
+                    ? 0.40f + Mathf.PingPong(Time.unscaledTime * 3f, 0.15f)
+                    : 0.35f + Mathf.Sin(Time.unscaledTime * 2f) * 0.08f;
                 vignetteOverlayImage.color = new Color(0f, 0.75f, 0.95f, breathe);
             }
 
             if (rewindBannerText != null)
             {
-                rewindBannerText.alpha = 0.9f;
+                if (isReadyToResume)
+                {
+                    float pulse = 0.5f + Mathf.PingPong(Time.unscaledTime * 3f, 0.5f);
+                    rewindBannerText.alpha = pulse;
+                }
+                else
+                {
+                    rewindBannerText.alpha = 0.9f;
+                }
             }
         }
     }

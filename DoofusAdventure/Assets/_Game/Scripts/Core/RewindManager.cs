@@ -1,15 +1,15 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 /// <summary>
 /// Prince of Persia Cinematic Time Rewind Engine:
-/// 1. Dramatic Slow-Motion Dilation (Time.timeScale drops to 0.12x for 0.55s):
-///    Doofus visibly floats in super slow motion over the void while the camera glides in.
-/// 2. Smooth Reverse Acceleration (0.3x -> 3.2x):
-///    Time rolls backwards, starting in slow reverse and building to high-speed playback.
-/// 3. Graceful Landing Deceleration (3.2x -> 1.0x):
-///    Decelerates gently to set Doofus softly back down on the restored platform.
+/// 1. Slow-Mo Fall Dilation (0.12x).
+/// 2. Reverse Acceleration (0.35x -> 3.2x).
+/// 3. Platform Touchdown & Interactive Resume Pause:
+///    The game pauses safely on the platform, allowing the player to catch their breath
+///    and press WASD / Space / Click to resume when ready!
 /// </summary>
 public class RewindManager : MonoBehaviour
 {
@@ -44,10 +44,12 @@ public class RewindManager : MonoBehaviour
     private float worldTime = 0f;
     private int currentCharges;
     private bool isRewinding = false;
+    private bool isWaitingForResume = false;
     private Coroutine rewindRoutine;
 
     public float WorldTime => worldTime;
     public bool IsRewinding => isRewinding;
+    public bool IsWaitingForResume => isWaitingForResume;
     public bool CanRewind => currentCharges > 0 && !isRewinding && snapshotBuffer.Count > 15;
     public int CurrentCharges => currentCharges;
     public int MaxCharges => maxCharges;
@@ -100,6 +102,7 @@ public class RewindManager : MonoBehaviour
         ResetCharges();
         snapshotBuffer.Clear();
         isRewinding = false;
+        isWaitingForResume = false;
     }
 
     public void ResetCharges()
@@ -110,7 +113,7 @@ public class RewindManager : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (isRewinding) return;
+        if (isRewinding || isWaitingForResume) return;
 
         if (GameManager.Instance != null && !GameManager.Instance.IsPlaying) return;
 
@@ -145,12 +148,12 @@ public class RewindManager : MonoBehaviour
     private IEnumerator CinematicSuperSlowMoRewindCoroutine()
     {
         isRewinding = true;
+        isWaitingForResume = false;
         GameEvents.TriggerRewindStart();
 
-        // 1. Phase 1: High-Impact Dramatic Slow Motion (Time.timeScale = 0.12x for 0.55s)
-        // You visibly see Doofus floating down in super slow motion over the void!
+        // 1. Phase 1: Slow-Motion Fall Dilation
         Time.timeScale = 0.12f;
-        float slowMoRealDuration = 0.55f;
+        float slowMoRealDuration = 0.50f;
         float elapsed = 0f;
 
         while (elapsed < slowMoRealDuration)
@@ -159,7 +162,6 @@ public class RewindManager : MonoBehaviour
             yield return null;
         }
 
-        // Freeze physics before beginning reverse travel
         Time.timeScale = 1.0f;
         if (playerRigidbody != null)
         {
@@ -167,7 +169,7 @@ public class RewindManager : MonoBehaviour
             playerRigidbody.linearVelocity = Vector3.zero;
         }
 
-        // 2. Phase 2: Dynamic Reverse Acceleration (0.3x -> 3.2x -> 1.0x)
+        // 2. Phase 2: Dynamic Reverse Acceleration
         int initialCount = snapshotBuffer.Count;
 
         while (snapshotBuffer.Count > 0)
@@ -177,17 +179,14 @@ public class RewindManager : MonoBehaviour
             float currentSpeed;
             if (progress < 0.20f)
             {
-                // Start reverse in dramatic slow-mo (0.35x), ramping up
                 currentSpeed = Mathf.Lerp(0.35f, 3.2f, progress / 0.20f);
             }
             else if (progress < 0.80f)
             {
-                // Full high-speed reverse playback
                 currentSpeed = 3.2f;
             }
             else
             {
-                // Gracefully decelerate down to normal speed (1.0x) for gentle landing
                 currentSpeed = Mathf.Lerp(3.2f, 1.0f, (progress - 0.80f) / 0.20f);
             }
 
@@ -209,7 +208,7 @@ public class RewindManager : MonoBehaviour
             yield return new WaitForSecondsRealtime(Time.fixedDeltaTime / Mathf.Max(0.4f, currentSpeed));
         }
 
-        // 3. Phase 3: Seamless Touchdown
+        // 3. Phase 3: Pause Safely on Platform & Wait for Player Input
         if (playerRigidbody != null)
         {
             playerRigidbody.isKinematic = false;
@@ -217,6 +216,36 @@ public class RewindManager : MonoBehaviour
             playerRigidbody.angularVelocity = Vector3.zero;
         }
 
+        // Freeze time and prompt player
+        Time.timeScale = 0f;
+        isWaitingForResume = true;
+        GameEvents.TriggerRewindReadyToResume();
+
+        // Wait for player to press WASD, Arrows, Space, or Click to resume!
+        yield return new WaitForSecondsRealtime(0.15f); // Brief debounce
+
+        while (isWaitingForResume)
+        {
+            Keyboard kb = Keyboard.current;
+            Mouse mouse = Mouse.current;
+
+            bool resumePressed = (kb != null && (
+                kb.wKey.wasPressedThisFrame || kb.aKey.wasPressedThisFrame ||
+                kb.sKey.wasPressedThisFrame || kb.dKey.wasPressedThisFrame ||
+                kb.upArrowKey.wasPressedThisFrame || kb.leftArrowKey.wasPressedThisFrame ||
+                kb.downArrowKey.wasPressedThisFrame || kb.rightArrowKey.wasPressedThisFrame ||
+                kb.spaceKey.wasPressedThisFrame || kb.enterKey.wasPressedThisFrame
+            )) || (mouse != null && mouse.leftButton.wasPressedThisFrame);
+
+            if (resumePressed)
+            {
+                isWaitingForResume = false;
+            }
+
+            yield return null;
+        }
+
+        // 4. Resume Gameplay Smoothly!
         Time.timeScale = 1.0f;
         isRewinding = false;
         GameEvents.TriggerRewindComplete();

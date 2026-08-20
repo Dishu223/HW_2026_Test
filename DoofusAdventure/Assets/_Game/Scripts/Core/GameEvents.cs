@@ -25,8 +25,9 @@ public static class GameEvents
 
     #region Rewind Time Events
     public static event Action OnRewindStart;
+    public static event Action OnRewindReadyToResume;
     public static event Action OnRewindComplete;
-    public static event Action<int, int> OnRewindChargesChanged; // (currentCharges, maxCharges)
+    public static event Action<int, int> OnRewindChargesChanged;
     #endregion
 
     #region Helper Trigger Methods
@@ -45,6 +46,7 @@ public static class GameEvents
     public static void TriggerDoofusFell() => OnDoofusFell?.Invoke();
 
     public static void TriggerRewindStart() => OnRewindStart?.Invoke();
+    public static void TriggerRewindReadyToResume() => OnRewindReadyToResume?.Invoke();
     public static void TriggerRewindComplete() => OnRewindComplete?.Invoke();
     public static void TriggerRewindChargesChanged(int current, int max) => OnRewindChargesChanged?.Invoke(current, max);
     #endregion
