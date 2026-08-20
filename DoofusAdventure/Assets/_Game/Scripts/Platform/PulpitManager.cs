@@ -1,9 +1,10 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Manages spawning and positioning of Pulpit platforms using the global deterministic timeline.
+/// Manages spawning and positioning of Pulpit platforms.
+/// Guarantees that every new platform is always directly adjacent and reachable
+/// from the platform the player is currently standing on or just jumped to.
 /// </summary>
 public class PulpitManager : MonoBehaviour
 {
@@ -16,8 +17,8 @@ public class PulpitManager : MonoBehaviour
     [SerializeField] private float platformSize = 5f;
 
     private readonly List<Pulpit> activePulpits = new List<Pulpit>();
-    private Vector3 currentPulpitPosition = Vector3.zero;
-    private Vector3 previousPulpitPosition = Vector3.zero;
+    private Vector3 currentAnchorPosition = Vector3.zero;
+    private Vector3 previousAnchorPosition = Vector3.zero;
     private float nextSpawnWorldTime = 0f;
 
     private readonly Vector3[] adjacentDirections = new Vector3[]
@@ -45,6 +46,7 @@ public class PulpitManager : MonoBehaviour
         GameEvents.OnGameOver += ClearAllPulpits;
         GameEvents.OnReturnToLobby += ClearAllPulpits;
         GameEvents.OnRewindComplete += HandleRewindComplete;
+        GameEvents.OnPulpitLanded += HandlePlayerLandedOnPulpit;
     }
 
     private void OnDisable()
@@ -54,6 +56,7 @@ public class PulpitManager : MonoBehaviour
         GameEvents.OnGameOver -= ClearAllPulpits;
         GameEvents.OnReturnToLobby -= ClearAllPulpits;
         GameEvents.OnRewindComplete -= HandleRewindComplete;
+        GameEvents.OnPulpitLanded -= HandlePlayerLandedOnPulpit;
     }
 
     private void Start()
@@ -82,11 +85,14 @@ public class PulpitManager : MonoBehaviour
         // Spawn next platform when world time reaches next scheduled spawn
         if (worldTime >= nextSpawnWorldTime && activePulpits.Count < 2)
         {
-            Vector3 nextPos = GetNextAdjacentPosition();
-            previousPulpitPosition = currentPulpitPosition;
-            currentPulpitPosition = nextPos;
+            // Determine best anchor: the latest active platform or where player is
+            UpdateAnchorToLatestPlatform();
 
-            SpawnPulpitAt(currentPulpitPosition, worldTime);
+            Vector3 nextPos = GetNextAdjacentPosition();
+            previousAnchorPosition = currentAnchorPosition;
+            currentAnchorPosition = nextPos;
+
+            SpawnPulpitAt(nextPos, worldTime);
             nextSpawnWorldTime = worldTime + spawnDelay;
         }
     }
@@ -95,19 +101,39 @@ public class PulpitManager : MonoBehaviour
     {
         ClearAllPulpits();
 
-        currentPulpitPosition = Vector3.zero;
-        previousPulpitPosition = Vector3.zero;
+        currentAnchorPosition = Vector3.zero;
+        previousAnchorPosition = Vector3.zero;
 
         float worldTime = RewindManager.Instance != null ? RewindManager.Instance.WorldTime : 0f;
         float spawnDelay = GameConfig.Instance != null ? GameConfig.Instance.SpawnTime : 2.5f;
 
-        SpawnPulpitAt(currentPulpitPosition, worldTime);
+        SpawnPulpitAt(Vector3.zero, worldTime);
         nextSpawnWorldTime = worldTime + spawnDelay;
     }
 
     public void RestartSpawning()
     {
         StartGameSpawning();
+    }
+
+    /// <summary>
+    /// When Doofus steps onto a new platform, anchor the next spawn directly to this platform!
+    /// </summary>
+    private void HandlePlayerLandedOnPulpit()
+    {
+        DoofusController doofus = FindAnyObjectByType<DoofusController>();
+        if (doofus != null)
+        {
+            Pulpit current = GetClosestAlivePulpit(doofus.transform.position);
+            if (current != null)
+            {
+                if (current.transform.position != currentAnchorPosition)
+                {
+                    previousAnchorPosition = currentAnchorPosition;
+                    currentAnchorPosition = current.transform.position;
+                }
+            }
+        }
     }
 
     private void HandleRewindComplete()
@@ -117,15 +143,15 @@ public class PulpitManager : MonoBehaviour
         float worldTime = RewindManager.Instance != null ? RewindManager.Instance.WorldTime : 0f;
         float spawnDelay = GameConfig.Instance != null ? GameConfig.Instance.SpawnTime : 2.5f;
 
-        // Identify the closest platform Doofus is standing on
         DoofusController doofus = FindAnyObjectByType<DoofusController>();
         Vector3 playerPos = doofus != null ? doofus.transform.position : Vector3.zero;
         Pulpit closest = GetClosestAlivePulpit(playerPos);
 
         if (closest != null)
         {
-            currentPulpitPosition = closest.transform.position;
-            // Schedule next spawn naturally based on how long this platform has lived
+            currentAnchorPosition = closest.transform.position;
+            previousAnchorPosition = Vector3.zero;
+
             float timeLived = worldTime - closest.SpawnWorldTime;
             float remainingUntilSpawn = Mathf.Max(0.5f, spawnDelay - timeLived);
             nextSpawnWorldTime = worldTime + remainingUntilSpawn;
@@ -133,6 +159,18 @@ public class PulpitManager : MonoBehaviour
         else
         {
             nextSpawnWorldTime = worldTime + spawnDelay;
+        }
+    }
+
+    private void UpdateAnchorToLatestPlatform()
+    {
+        if (activePulpits.Count == 0) return;
+
+        // If we have active pulpits, anchor to the newest active one
+        Pulpit newest = activePulpits[activePulpits.Count - 1];
+        if (newest != null && !newest.IsDestroyed)
+        {
+            currentAnchorPosition = newest.transform.position;
         }
     }
 
@@ -197,7 +235,7 @@ public class PulpitManager : MonoBehaviour
 
         foreach (Vector3 dir in adjacentDirections)
         {
-            Vector3 candidatePos = currentPulpitPosition + (dir * platformSize);
+            Vector3 candidatePos = currentAnchorPosition + (dir * platformSize);
 
             bool isOccupied = false;
             foreach (Pulpit active in activePulpits)
@@ -209,7 +247,7 @@ public class PulpitManager : MonoBehaviour
                 }
             }
 
-            if (!isOccupied && candidatePos != previousPulpitPosition)
+            if (!isOccupied && candidatePos != previousAnchorPosition)
             {
                 validPositions.Add(candidatePos);
             }
@@ -219,8 +257,8 @@ public class PulpitManager : MonoBehaviour
         {
             foreach (Vector3 dir in adjacentDirections)
             {
-                Vector3 candidatePos = currentPulpitPosition + (dir * platformSize);
-                if (candidatePos != currentPulpitPosition)
+                Vector3 candidatePos = currentAnchorPosition + (dir * platformSize);
+                if (candidatePos != currentAnchorPosition)
                 {
                     validPositions.Add(candidatePos);
                 }
