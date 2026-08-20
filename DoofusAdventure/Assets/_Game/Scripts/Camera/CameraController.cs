@@ -2,7 +2,7 @@
 
 /// <summary>
 /// Smoothly tracks Doofus from an isometric perspective,
-/// provides dynamic camera zoom during Prince of Persia Time Rewind,
+/// provides cinematic buttery-smooth camera zoom during Prince of Persia Time Rewind (zero snapping),
 /// and applies screen shake on platform collapses and milestones.
 /// </summary>
 public class CameraController : MonoBehaviour
@@ -12,17 +12,19 @@ public class CameraController : MonoBehaviour
 
     [Header("Isometric Camera Offset")]
     [SerializeField] private Vector3 defaultOffset = new Vector3(0f, 11f, -13f);
-    [SerializeField] private float smoothSpeed = 8f;
+    [SerializeField] private float positionSmoothTime = 0.25f;
 
     [Header("Rewind Dynamic Zoom")]
-    [SerializeField] private float rewindZoomFactor = 0.75f; // 25% closer for high-intensity cinematic rewind
-    [SerializeField] private float zoomSpeed = 6f;
+    [SerializeField] private float rewindZoomFactor = 0.80f; // 20% closer for intimate cinematic feel
+    [SerializeField] private float zoomSmoothTime = 0.40f;
 
     [Header("Screen Shake")]
     [SerializeField] private float shakeDamping = 10f;
 
     private Vector3 currentOffset;
     private Vector3 targetOffset;
+    private Vector3 positionVelocity;
+    private Vector3 zoomVelocity;
     private Vector3 shakeOffset = Vector3.zero;
     private float currentShakeIntensity = 0f;
 
@@ -67,11 +69,12 @@ public class CameraController : MonoBehaviour
     {
         if (target == null) return;
 
-        // Smoothly adjust camera zoom offset
-        currentOffset = Vector3.Lerp(currentOffset, targetOffset, Time.unscaledDeltaTime * zoomSpeed);
+        // Buttery-smooth zoom offset transition using SmoothDamp (never snaps or jumps!)
+        currentOffset = Vector3.SmoothDamp(currentOffset, targetOffset, ref zoomVelocity, zoomSmoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
 
+        // Buttery-smooth target tracking using SmoothDamp
         Vector3 desiredPosition = target.position + currentOffset;
-        transform.position = Vector3.Lerp(transform.position, desiredPosition, Time.unscaledDeltaTime * smoothSpeed);
+        transform.position = Vector3.SmoothDamp(transform.position, desiredPosition, ref positionVelocity, positionSmoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
 
         if (currentShakeIntensity > 0.01f)
         {
@@ -100,15 +103,13 @@ public class CameraController : MonoBehaviour
 
     private void HandleRewindStart()
     {
-        // Swoop camera in closer during Time Rewind!
+        // Smoothly glide camera closer during Time Rewind
         targetOffset = defaultOffset * rewindZoomFactor;
-        TriggerShake(0.15f);
     }
 
     private void HandleRewindComplete()
     {
-        // Smoothly zoom back out to normal isometric view
+        // Smoothly glide camera back out to default overview
         targetOffset = defaultOffset;
-        TriggerShake(0.25f); // Satisfying punch on landing!
     }
 }

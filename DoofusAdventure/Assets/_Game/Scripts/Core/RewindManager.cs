@@ -3,10 +3,13 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Prince of Persia / Braid style Time Rewind Engine with Cinematic Time-Ramp Curve:
-/// 1. Fatal Fall Dilation: Smooth slow-mo deceleration (0.2x) as player falls into the void.
-/// 2. Rewind Acceleration: Starts in reverse slow-mo (0.4x), accelerates smoothly to 2.8x speed.
-/// 3. Gentle Landing: Smoothly decelerates back to 1.0x speed as player touches down on the platform.
+/// Prince of Persia Cinematic Time Rewind Engine:
+/// 1. Dramatic Slow-Motion Dilation (Time.timeScale drops to 0.12x for 0.55s):
+///    Doofus visibly floats in super slow motion over the void while the camera glides in.
+/// 2. Smooth Reverse Acceleration (0.3x -> 3.2x):
+///    Time rolls backwards, starting in slow reverse and building to high-speed playback.
+/// 3. Graceful Landing Deceleration (3.2x -> 1.0x):
+///    Decelerates gently to set Doofus softly back down on the restored platform.
 /// </summary>
 public class RewindManager : MonoBehaviour
 {
@@ -93,6 +96,7 @@ public class RewindManager : MonoBehaviour
     private void HandleGameStart()
     {
         worldTime = 0f;
+        Time.timeScale = 1f;
         ResetCharges();
         snapshotBuffer.Clear();
         isRewinding = false;
@@ -135,49 +139,56 @@ public class RewindManager : MonoBehaviour
         GameEvents.TriggerRewindChargesChanged(currentCharges, maxCharges);
 
         if (rewindRoutine != null) StopCoroutine(rewindRoutine);
-        rewindRoutine = StartCoroutine(SmoothCinematicRewindCoroutine());
+        rewindRoutine = StartCoroutine(CinematicSuperSlowMoRewindCoroutine());
     }
 
-    private IEnumerator SmoothCinematicRewindCoroutine()
+    private IEnumerator CinematicSuperSlowMoRewindCoroutine()
     {
         isRewinding = true;
         GameEvents.TriggerRewindStart();
 
-        // 1. Phase 1: Slow-Motion Fall Dilation (Suspended in mid-air for 0.3s)
-        float slowMoDuration = 0.30f;
+        // 1. Phase 1: High-Impact Dramatic Slow Motion (Time.timeScale = 0.12x for 0.55s)
+        // You visibly see Doofus floating down in super slow motion over the void!
+        Time.timeScale = 0.12f;
+        float slowMoRealDuration = 0.55f;
         float elapsed = 0f;
-        while (elapsed < slowMoDuration)
+
+        while (elapsed < slowMoRealDuration)
         {
             elapsed += Time.unscaledDeltaTime;
             yield return null;
         }
 
+        // Freeze physics before beginning reverse travel
+        Time.timeScale = 1.0f;
         if (playerRigidbody != null)
         {
             playerRigidbody.isKinematic = true;
             playerRigidbody.linearVelocity = Vector3.zero;
         }
 
-        // 2. Phase 2: Dynamic Time-Ramp Reversal Playback
+        // 2. Phase 2: Dynamic Reverse Acceleration (0.3x -> 3.2x -> 1.0x)
         int initialCount = snapshotBuffer.Count;
 
         while (snapshotBuffer.Count > 0)
         {
-            float progress = 1f - ((float)snapshotBuffer.Count / initialCount); // 0.0 -> 1.0
+            float progress = 1f - ((float)snapshotBuffer.Count / initialCount);
 
-            // Speed Curve: Start in slow-mo (0.5x) -> Accelerate to (2.8x) -> Decelerate into landing (1.0x)
             float currentSpeed;
-            if (progress < 0.25f)
+            if (progress < 0.20f)
             {
-                currentSpeed = Mathf.Lerp(0.5f, 2.8f, progress / 0.25f);
+                // Start reverse in dramatic slow-mo (0.35x), ramping up
+                currentSpeed = Mathf.Lerp(0.35f, 3.2f, progress / 0.20f);
             }
             else if (progress < 0.80f)
             {
-                currentSpeed = 2.8f;
+                // Full high-speed reverse playback
+                currentSpeed = 3.2f;
             }
             else
             {
-                currentSpeed = Mathf.Lerp(2.8f, 1.0f, (progress - 0.80f) / 0.20f);
+                // Gracefully decelerate down to normal speed (1.0x) for gentle landing
+                currentSpeed = Mathf.Lerp(3.2f, 1.0f, (progress - 0.80f) / 0.20f);
             }
 
             int framesToPop = Mathf.Max(1, Mathf.RoundToInt(currentSpeed));
@@ -195,7 +206,7 @@ public class RewindManager : MonoBehaviour
                 }
             }
 
-            yield return new WaitForSecondsRealtime(Time.fixedDeltaTime / Mathf.Max(0.5f, currentSpeed));
+            yield return new WaitForSecondsRealtime(Time.fixedDeltaTime / Mathf.Max(0.4f, currentSpeed));
         }
 
         // 3. Phase 3: Seamless Touchdown
@@ -206,6 +217,7 @@ public class RewindManager : MonoBehaviour
             playerRigidbody.angularVelocity = Vector3.zero;
         }
 
+        Time.timeScale = 1.0f;
         isRewinding = false;
         GameEvents.TriggerRewindComplete();
     }
