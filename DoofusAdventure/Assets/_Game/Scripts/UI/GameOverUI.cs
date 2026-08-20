@@ -5,10 +5,12 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// Self-contained Game Over screen:
-/// - Automatically activates when Doofus falls
+/// - Uses CanvasGroup visibility so event subscriptions are always active in memory
+/// - Automatically fades in when Doofus falls
 /// - Counting-up score ticker and best score
 /// - Restarts game on 'R' key, Space, or Click
 /// </summary>
+[RequireComponent(typeof(CanvasGroup))]
 public class GameOverUI : MonoBehaviour
 {
     [Header("Score Displays")]
@@ -17,43 +19,73 @@ public class GameOverUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI victoryBannerText;
     [SerializeField] private TextMeshProUGUI restartPromptText;
 
+    private CanvasGroup canvasGroup;
     private Coroutine scoreTickerRoutine;
     private float activationCooldown = 0.3f;
     private float timer = 0f;
+    private bool isGameOverActive = false;
 
     private void Awake()
     {
-        // Start disabled until Game Over occurs
-        gameObject.SetActive(false);
+        canvasGroup = GetComponent<CanvasGroup>();
+        if (canvasGroup == null) canvasGroup = gameObject.AddComponent<CanvasGroup>();
+
+        HideGameOverImmediate();
     }
 
     private void OnEnable()
     {
-        timer = 0f;
-        DisplayGameOverResults();
-
-        GameEvents.OnGameOver += HandleGameOverEvent;
-        GameEvents.OnGameStart += HandleGameStartEvent;
+        GameEvents.OnGameOver += HandleGameOver;
+        GameEvents.OnGameStart += HandleGameStart;
     }
 
     private void OnDisable()
     {
-        GameEvents.OnGameOver -= HandleGameOverEvent;
-        GameEvents.OnGameStart -= HandleGameStartEvent;
+        GameEvents.OnGameOver -= HandleGameOver;
+        GameEvents.OnGameStart -= HandleGameStart;
     }
 
-    private void HandleGameOverEvent()
+    private void HandleGameOver()
     {
-        gameObject.SetActive(true);
+        ShowGameOver();
     }
 
-    private void HandleGameStartEvent()
+    private void HandleGameStart()
     {
-        gameObject.SetActive(false);
+        HideGameOverImmediate();
+    }
+
+    public void ShowGameOver()
+    {
+        isGameOverActive = true;
+        timer = 0f;
+
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 1f;
+            canvasGroup.interactable = true;
+            canvasGroup.blocksRaycasts = true;
+        }
+
+        DisplayGameOverResults();
+    }
+
+    public void HideGameOverImmediate()
+    {
+        isGameOverActive = false;
+
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 0f;
+            canvasGroup.interactable = false;
+            canvasGroup.blocksRaycasts = false;
+        }
     }
 
     private void Update()
     {
+        if (!isGameOverActive) return;
+
         timer += Time.unscaledDeltaTime;
         if (timer < activationCooldown) return;
 
@@ -87,11 +119,8 @@ public class GameOverUI : MonoBehaviour
                 victoryBannerText.text = "*** 50 PULPITS REACHED! CHALLENGE COMPLETE! ***";
         }
 
-        if (gameObject.activeInHierarchy)
-        {
-            if (scoreTickerRoutine != null) StopCoroutine(scoreTickerRoutine);
-            scoreTickerRoutine = StartCoroutine(ScoreTickerCoroutine(score));
-        }
+        if (scoreTickerRoutine != null) StopCoroutine(scoreTickerRoutine);
+        scoreTickerRoutine = StartCoroutine(ScoreTickerCoroutine(score));
     }
 
     private IEnumerator ScoreTickerCoroutine(int targetScore)
@@ -114,7 +143,7 @@ public class GameOverUI : MonoBehaviour
 
     public void RestartGame()
     {
-        gameObject.SetActive(false);
+        HideGameOverImmediate();
 
         if (GameManager.Instance != null)
         {

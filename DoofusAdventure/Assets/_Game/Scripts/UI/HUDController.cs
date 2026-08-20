@@ -5,52 +5,61 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Controls in-game HUD displays (Score counter & High score).
-/// Activates strictly when gameplay starts, and hides when on menus or game over.
+/// Uses CanvasGroup visibility so event listeners are always active.
 /// </summary>
+[RequireComponent(typeof(CanvasGroup))]
 public class HUDController : MonoBehaviour
 {
     [Header("Score Display")]
     [SerializeField] private TextMeshProUGUI scoreText;
     [SerializeField] private TextMeshProUGUI highScoreText;
 
+    private CanvasGroup canvasGroup;
     private Coroutine scorePunchRoutine;
 
     private void Awake()
     {
-        // Hide HUD until game starts
-        gameObject.SetActive(false);
+        canvasGroup = GetComponent<CanvasGroup>();
+        if (canvasGroup == null) canvasGroup = gameObject.AddComponent<CanvasGroup>();
+
+        HideHUD();
     }
 
     private void OnEnable()
     {
-        GameEvents.OnGameStart += HandleGameStart;
-        GameEvents.OnGameOver += HandleGameOver;
-        GameEvents.OnReturnToLobby += HandleReturnToLobby;
+        GameEvents.OnGameStart += ShowHUD;
+        GameEvents.OnGameOver += HideHUD;
+        GameEvents.OnReturnToLobby += HideHUD;
         GameEvents.OnScoreChanged += UpdateScoreDisplay;
     }
 
     private void OnDisable()
     {
-        GameEvents.OnGameStart -= HandleGameStart;
-        GameEvents.OnGameOver -= HandleGameOver;
-        GameEvents.OnReturnToLobby -= HandleReturnToLobby;
+        GameEvents.OnGameStart -= ShowHUD;
+        GameEvents.OnGameOver -= HideHUD;
+        GameEvents.OnReturnToLobby -= HideHUD;
         GameEvents.OnScoreChanged -= UpdateScoreDisplay;
     }
 
-    private void HandleGameStart()
+    public void ShowHUD()
     {
-        gameObject.SetActive(true);
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 1f;
+            canvasGroup.interactable = true;
+            canvasGroup.blocksRaycasts = true;
+        }
         UpdateScoreDisplay(0);
     }
 
-    private void HandleGameOver()
+    public void HideHUD()
     {
-        gameObject.SetActive(false);
-    }
-
-    private void HandleReturnToLobby()
-    {
-        gameObject.SetActive(false);
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 0f;
+            canvasGroup.interactable = false;
+            canvasGroup.blocksRaycasts = false;
+        }
     }
 
     private void UpdateScoreDisplay(int newScore)
@@ -59,7 +68,7 @@ public class HUDController : MonoBehaviour
         {
             scoreText.text = $"PULPITS: {newScore}";
 
-            if (gameObject.activeInHierarchy)
+            if (gameObject.activeInHierarchy && canvasGroup != null && canvasGroup.alpha > 0.5f)
             {
                 if (scorePunchRoutine != null) StopCoroutine(scorePunchRoutine);
                 scorePunchRoutine = StartCoroutine(PunchScale(scoreText.transform, 1.35f, 0.2f));
