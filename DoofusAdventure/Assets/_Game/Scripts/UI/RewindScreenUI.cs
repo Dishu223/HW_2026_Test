@@ -3,10 +3,9 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Controls the cinematic Prince of Persia / VHS Time Rewind screen overlay:
-/// - Cyan/Chrono vignette border that pulses during reverse playback
-/// - High-energy "⏪ REWINDING TIME ⏪" glitching banner
-/// - Flash-fade on rewind completion
+/// Calm, atmospheric Prince of Persia Time Rewind overlay:
+/// - Soft, cinematic cyan/gold vignette with smooth fade transitions
+/// - Clean, legible typography without aggressive flashing or strobing
 /// </summary>
 [RequireComponent(typeof(CanvasGroup))]
 public class RewindScreenUI : MonoBehaviour
@@ -17,6 +16,7 @@ public class RewindScreenUI : MonoBehaviour
 
     private CanvasGroup canvasGroup;
     private bool isRewindScreenActive = false;
+    private float fadeSpeed = 4f;
 
     private void Awake()
     {
@@ -45,21 +45,11 @@ public class RewindScreenUI : MonoBehaviour
     private void ShowRewindOverlay()
     {
         isRewindScreenActive = true;
-        if (canvasGroup != null)
-        {
-            canvasGroup.alpha = 1f;
-            canvasGroup.blocksRaycasts = false;
-        }
     }
 
     private void HideRewindOverlay()
     {
         isRewindScreenActive = false;
-        if (canvasGroup != null)
-        {
-            canvasGroup.alpha = 0f;
-            canvasGroup.blocksRaycasts = false;
-        }
     }
 
     public void HideImmediate()
@@ -74,22 +64,26 @@ public class RewindScreenUI : MonoBehaviour
 
     private void Update()
     {
-        if (!isRewindScreenActive) return;
+        if (canvasGroup == null) return;
 
-        // Pulsing vignette glow (Cyan -> Gold)
-        if (vignetteOverlayImage != null)
-        {
-            float pulse = 0.35f + Mathf.PingPong(Time.unscaledTime * 5f, 0.35f);
-            vignetteOverlayImage.color = new Color(0f, 0.85f, 1f, pulse);
-        }
+        // Smooth non-jarring fade in and fade out
+        float targetAlpha = isRewindScreenActive ? 1f : 0f;
+        canvasGroup.alpha = Mathf.MoveTowards(canvasGroup.alpha, targetAlpha, Time.unscaledDeltaTime * fadeSpeed);
+        canvasGroup.blocksRaycasts = false;
 
-        // Glitch pulse on banner text
-        if (rewindBannerText != null)
+        if (canvasGroup.alpha > 0.01f)
         {
-            float alpha = 0.7f + Mathf.PingPong(Time.unscaledTime * 8f, 0.3f);
-            rewindBannerText.alpha = alpha;
-            float wobble = Mathf.Sin(Time.unscaledTime * 20f) * 4f;
-            rewindBannerText.rectTransform.anchoredPosition = new Vector2(wobble, rewindBannerText.rectTransform.anchoredPosition.y);
+            // Calm, slow atmospheric ambient breathing (no strobing)
+            if (vignetteOverlayImage != null)
+            {
+                float breathe = 0.35f + Mathf.Sin(Time.unscaledTime * 2f) * 0.08f;
+                vignetteOverlayImage.color = new Color(0f, 0.75f, 0.95f, breathe);
+            }
+
+            if (rewindBannerText != null)
+            {
+                rewindBannerText.alpha = 0.9f;
+            }
         }
     }
 }

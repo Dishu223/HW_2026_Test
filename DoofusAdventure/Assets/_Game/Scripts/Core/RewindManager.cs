@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Prince of Persia / Braid style Time Rewind Engine:
-/// - Maintains a single deterministic Global WorldTime clock
-/// - Rewinds player motion, platform lifetimes, and spawn schedules in perfect mathematical sync
-/// - Automatically un-spawns future platforms and resurrects past platforms
+/// Prince of Persia / Braid style Time Rewind Engine with Cinematic Time-Ramp Curve:
+/// 1. Fatal Fall Dilation: Smooth slow-mo deceleration (0.2x) as player falls into the void.
+/// 2. Rewind Acceleration: Starts in reverse slow-mo (0.4x), accelerates smoothly to 2.8x speed.
+/// 3. Gentle Landing: Smoothly decelerates back to 1.0x speed as player touches down on the platform.
 /// </summary>
 public class RewindManager : MonoBehaviour
 {
@@ -15,9 +15,6 @@ public class RewindManager : MonoBehaviour
     [Header("Rewind Settings")]
     [Tooltip("How many seconds of history to record")]
     [SerializeField] private float maxRecordSeconds = 3.5f;
-
-    [Tooltip("Speed multiplier for reverse playback (2.2x = rewinds in ~1.5s)")]
-    [SerializeField] private float rewindPlaybackSpeed = 2.2f;
 
     [Tooltip("Maximum rewind charges per run")]
     [SerializeField] private int maxCharges = 3;
@@ -113,7 +110,6 @@ public class RewindManager : MonoBehaviour
 
         if (GameManager.Instance != null && !GameManager.Instance.IsPlaying) return;
 
-        // Advance global world clock
         worldTime += Time.fixedDeltaTime;
 
         if (playerTransform == null)
@@ -139,13 +135,22 @@ public class RewindManager : MonoBehaviour
         GameEvents.TriggerRewindChargesChanged(currentCharges, maxCharges);
 
         if (rewindRoutine != null) StopCoroutine(rewindRoutine);
-        rewindRoutine = StartCoroutine(RewindPlaybackCoroutine());
+        rewindRoutine = StartCoroutine(SmoothCinematicRewindCoroutine());
     }
 
-    private IEnumerator RewindPlaybackCoroutine()
+    private IEnumerator SmoothCinematicRewindCoroutine()
     {
         isRewinding = true;
         GameEvents.TriggerRewindStart();
+
+        // 1. Phase 1: Slow-Motion Fall Dilation (Suspended in mid-air for 0.3s)
+        float slowMoDuration = 0.30f;
+        float elapsed = 0f;
+        while (elapsed < slowMoDuration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            yield return null;
+        }
 
         if (playerRigidbody != null)
         {
@@ -153,29 +158,47 @@ public class RewindManager : MonoBehaviour
             playerRigidbody.linearVelocity = Vector3.zero;
         }
 
+        // 2. Phase 2: Dynamic Time-Ramp Reversal Playback
+        int initialCount = snapshotBuffer.Count;
+
         while (snapshotBuffer.Count > 0)
         {
-            PlayerSnapshot snapshot = snapshotBuffer.Last.Value;
-            snapshotBuffer.RemoveLast();
+            float progress = 1f - ((float)snapshotBuffer.Count / initialCount); // 0.0 -> 1.0
 
-            // Rewind global world time to match exact historical frame!
-            worldTime = snapshot.worldTime;
-
-            if (playerTransform != null)
+            // Speed Curve: Start in slow-mo (0.5x) -> Accelerate to (2.8x) -> Decelerate into landing (1.0x)
+            float currentSpeed;
+            if (progress < 0.25f)
             {
-                playerTransform.position = snapshot.position;
-                playerTransform.rotation = snapshot.rotation;
+                currentSpeed = Mathf.Lerp(0.5f, 2.8f, progress / 0.25f);
+            }
+            else if (progress < 0.80f)
+            {
+                currentSpeed = 2.8f;
+            }
+            else
+            {
+                currentSpeed = Mathf.Lerp(2.8f, 1.0f, (progress - 0.80f) / 0.20f);
             }
 
-            int framesToSkip = Mathf.Max(1, Mathf.RoundToInt(rewindPlaybackSpeed));
-            for (int i = 0; i < framesToSkip - 1 && snapshotBuffer.Count > 0; i++)
+            int framesToPop = Mathf.Max(1, Mathf.RoundToInt(currentSpeed));
+            for (int i = 0; i < framesToPop && snapshotBuffer.Count > 0; i++)
             {
+                PlayerSnapshot snapshot = snapshotBuffer.Last.Value;
                 snapshotBuffer.RemoveLast();
+
+                worldTime = snapshot.worldTime;
+
+                if (playerTransform != null)
+                {
+                    playerTransform.position = snapshot.position;
+                    playerTransform.rotation = snapshot.rotation;
+                }
             }
 
-            yield return new WaitForFixedUpdate();
+            yield return new WaitForSecondsRealtime(Time.fixedDeltaTime / Mathf.Max(0.5f, currentSpeed));
         }
 
+        // 3. Phase 3: Seamless Touchdown
         if (playerRigidbody != null)
         {
             playerRigidbody.isKinematic = false;
