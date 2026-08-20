@@ -3,9 +3,8 @@ using UnityEngine;
 
 /// <summary>
 /// Manages spawning and positioning of Pulpit platforms:
-/// - Forward-biased exploration so Doofus journeys forward through the world
-/// - Strict 4-tile memory history to eliminate backtracking to recent spots
-/// - Always adjacent and reachable from current platform
+/// - Uses Deterministic Path Caching so platforms re-spawn at the EXACT SAME coordinates after a rewind!
+/// - Forward-biased exploration and anti-backtracking memory
 /// </summary>
 public class PulpitManager : MonoBehaviour
 {
@@ -18,18 +17,19 @@ public class PulpitManager : MonoBehaviour
     [SerializeField] private float platformSize = 5f;
 
     private readonly List<Pulpit> activePulpits = new List<Pulpit>();
+    private readonly List<Vector3> deterministicPathCache = new List<Vector3>();
     private readonly List<Vector3> recentPositionsHistory = new List<Vector3>();
     private const int MAX_RECENT_HISTORY = 4;
 
-    private Vector3 currentAnchorPosition = Vector3.zero;
+    private int nextSequenceIndexToSpawn = 0;
     private float nextSpawnWorldTime = 0f;
 
     private readonly Vector3[] adjacentDirections = new Vector3[]
     {
-        Vector3.forward, // High priority
-        Vector3.right,   // Medium priority
-        Vector3.left,    // Medium priority
-        Vector3.back     // Low priority (fallback only)
+        Vector3.forward,
+        Vector3.right,
+        Vector3.left,
+        Vector3.back
     };
 
     private void Awake()
@@ -70,7 +70,10 @@ public class PulpitManager : MonoBehaviour
         }
         else
         {
-            SpawnPulpitAt(Vector3.zero, 0f);
+            deterministicPathCache.Clear();
+            deterministicPathCache.Add(Vector3.zero);
+            SpawnPulpitAt(Vector3.zero, 0f, 0);
+            nextSequenceIndexToSpawn = 1;
         }
     }
 
@@ -86,12 +89,23 @@ public class PulpitManager : MonoBehaviour
 
         if (worldTime >= nextSpawnWorldTime && activePulpits.Count < 2)
         {
-            UpdateAnchorToLatestPlatform();
+            Vector3 nextPos;
 
-            Vector3 nextPos = GetNextAdjacentPosition();
-            currentAnchorPosition = nextPos;
+            // 1. If this step was already generated before a rewind, preserve its EXACT previous position!
+            if (nextSequenceIndexToSpawn < deterministicPathCache.Count)
+            {
+                nextPos = deterministicPathCache[nextSequenceIndexToSpawn];
+            }
+            else
+            {
+                // 2. Generate new forward-biased adjacent position and cache it!
+                Vector3 anchorPos = GetLatestAnchorPosition();
+                nextPos = GenerateAdjacentPositionFrom(anchorPos);
+                deterministicPathCache.Add(nextPos);
+            }
 
-            SpawnPulpitAt(nextPos, worldTime);
+            SpawnPulpitAt(nextPos, worldTime, nextSequenceIndexToSpawn);
+            nextSequenceIndexToSpawn++;
             nextSpawnWorldTime = worldTime + spawnDelay;
         }
     }
@@ -99,15 +113,17 @@ public class PulpitManager : MonoBehaviour
     public void StartGameSpawning()
     {
         ClearAllPulpits();
+        deterministicPathCache.Clear();
         recentPositionsHistory.Clear();
 
-        currentAnchorPosition = Vector3.zero;
+        deterministicPathCache.Add(Vector3.zero);
         recentPositionsHistory.Add(Vector3.zero);
 
         float worldTime = RewindManager.Instance != null ? RewindManager.Instance.WorldTime : 0f;
         float spawnDelay = GameConfig.Instance != null ? GameConfig.Instance.SpawnTime : 2.5f;
 
-        SpawnPulpitAt(Vector3.zero, worldTime);
+        SpawnPulpitAt(Vector3.zero, worldTime, 0);
+        nextSequenceIndexToSpawn = 1;
         nextSpawnWorldTime = worldTime + spawnDelay;
     }
 
@@ -118,15 +134,7 @@ public class PulpitManager : MonoBehaviour
 
     private void HandlePlayerLandedOnPulpit()
     {
-        DoofusController doofus = FindAnyObjectByType<DoofusController>();
-        if (doofus != null)
-        {
-            Pulpit current = GetClosestAlivePulpit(doofus.transform.position);
-            if (current != null)
-            {
-                currentAnchorPosition = current.transform.position;
-            }
-        }
+        // Keep track of visited platforms
     }
 
     private void HandleRewindComplete()
@@ -136,14 +144,25 @@ public class PulpitManager : MonoBehaviour
         float worldTime = RewindManager.Instance != null ? RewindManager.Instance.WorldTime : 0f;
         float spawnDelay = GameConfig.Instance != null ? GameConfig.Instance.SpawnTime : 2.5f;
 
-        DoofusController doofus = FindAnyObjectByType<DoofusController>();
-        Vector3 playerPos = doofus != null ? doofus.transform.position : Vector3.zero;
-        Pulpit closest = GetClosestAlivePulpit(playerPos);
+        // Find highest sequence index among currently alive pulpits
+        int highestAliveIndex = 0;
+        Pulpit highestAlivePulpit = null;
 
-        if (closest != null)
+        foreach (Pulpit p in activePulpits)
         {
-            currentAnchorPosition = closest.transform.position;
-            float timeLived = worldTime - closest.SpawnWorldTime;
+            if (p != null && !p.IsDestroyed && p.PlatformSequenceIndex >= highestAliveIndex)
+            {
+                highestAliveIndex = p.PlatformSequenceIndex;
+                highestAlivePulpit = p;
+            }
+        }
+
+        // Rewind the next sequence index to spawn so it reads from the deterministic cache!
+        nextSequenceIndexToSpawn = highestAliveIndex + 1;
+
+        if (highestAlivePulpit != null)
+        {
+            float timeLived = worldTime - highestAlivePulpit.SpawnWorldTime;
             float remainingUntilSpawn = Mathf.Max(0.5f, spawnDelay - timeLived);
             nextSpawnWorldTime = worldTime + remainingUntilSpawn;
         }
@@ -153,15 +172,23 @@ public class PulpitManager : MonoBehaviour
         }
     }
 
-    private void UpdateAnchorToLatestPlatform()
+    private Vector3 GetLatestAnchorPosition()
     {
-        if (activePulpits.Count == 0) return;
-
-        Pulpit newest = activePulpits[activePulpits.Count - 1];
-        if (newest != null && !newest.IsDestroyed)
+        if (activePulpits.Count > 0)
         {
-            currentAnchorPosition = newest.transform.position;
+            Pulpit newest = activePulpits[activePulpits.Count - 1];
+            if (newest != null && !newest.IsDestroyed)
+            {
+                return newest.transform.position;
+            }
         }
+
+        if (deterministicPathCache.Count > 0)
+        {
+            return deterministicPathCache[deterministicPathCache.Count - 1];
+        }
+
+        return Vector3.zero;
     }
 
     private void RefreshActivePulpitsList()
@@ -177,28 +204,7 @@ public class PulpitManager : MonoBehaviour
         }
     }
 
-    private Pulpit GetClosestAlivePulpit(Vector3 origin)
-    {
-        Pulpit[] all = FindObjectsByType<Pulpit>(FindObjectsSortMode.None);
-        Pulpit closest = null;
-        float minDst = float.MaxValue;
-
-        foreach (Pulpit p in all)
-        {
-            if (p != null && !p.IsDestroyed)
-            {
-                float dst = Vector3.Distance(origin, p.transform.position);
-                if (dst < minDst)
-                {
-                    minDst = dst;
-                    closest = p;
-                }
-            }
-        }
-        return closest;
-    }
-
-    private void SpawnPulpitAt(Vector3 position, float spawnTime)
+    private void SpawnPulpitAt(Vector3 position, float spawnTime, int sequenceIndex)
     {
         if (pulpitPrefab == null)
         {
@@ -212,11 +218,10 @@ public class PulpitManager : MonoBehaviour
         Pulpit pulpitScript = newPulpitObj.GetComponent<Pulpit>();
         if (pulpitScript != null)
         {
-            pulpitScript.InitializeTimeline(spawnTime);
+            pulpitScript.InitializeTimeline(spawnTime, sequenceIndex);
             activePulpits.Add(pulpitScript);
         }
 
-        // Record into recent history
         recentPositionsHistory.Add(position);
         if (recentPositionsHistory.Count > MAX_RECENT_HISTORY)
         {
@@ -226,19 +231,15 @@ public class PulpitManager : MonoBehaviour
         GameEvents.TriggerPulpitSpawned(position);
     }
 
-    /// <summary>
-    /// Weighted Forward-Biased candidate selection with strict recent history avoidance.
-    /// </summary>
-    private Vector3 GetNextAdjacentPosition()
+    private Vector3 GenerateAdjacentPositionFrom(Vector3 anchorPosition)
     {
         List<Vector3> preferredCandidates = new List<Vector3>();
         List<int> candidateWeights = new List<int>();
 
         foreach (Vector3 dir in adjacentDirections)
         {
-            Vector3 candidatePos = currentAnchorPosition + (dir * platformSize);
+            Vector3 candidatePos = anchorPosition + (dir * platformSize);
 
-            // 1. Check if occupied by any currently active pulpit
             bool isOccupied = false;
             foreach (Pulpit active in activePulpits)
             {
@@ -249,7 +250,6 @@ public class PulpitManager : MonoBehaviour
                 }
             }
 
-            // 2. Check if in recent history (prevent backtracking!)
             bool isRecent = false;
             foreach (Vector3 recent in recentPositionsHistory)
             {
@@ -264,17 +264,15 @@ public class PulpitManager : MonoBehaviour
             {
                 preferredCandidates.Add(candidatePos);
 
-                // Forward gets highest weight, Left/Right medium, Back lowest
                 if (dir == Vector3.forward)
-                    candidateWeights.Add(5); // 50%
+                    candidateWeights.Add(5);
                 else if (dir == Vector3.right || dir == Vector3.left)
-                    candidateWeights.Add(3); // 30% each
+                    candidateWeights.Add(3);
                 else
-                    candidateWeights.Add(1); // 10%
+                    candidateWeights.Add(1);
             }
         }
 
-        // If preferred non-recent directions are available, choose with forward bias
         if (preferredCandidates.Count > 0)
         {
             int totalWeight = 0;
@@ -295,10 +293,9 @@ public class PulpitManager : MonoBehaviour
             return preferredCandidates[0];
         }
 
-        // Fallback: If trapped by recent tiles, pick any unoccupied adjacent space
         foreach (Vector3 dir in adjacentDirections)
         {
-            Vector3 candidatePos = currentAnchorPosition + (dir * platformSize);
+            Vector3 candidatePos = anchorPosition + (dir * platformSize);
             bool isOccupied = false;
             foreach (Pulpit active in activePulpits)
             {
@@ -315,8 +312,7 @@ public class PulpitManager : MonoBehaviour
             }
         }
 
-        // Emergency fallback: Forward
-        return currentAnchorPosition + (Vector3.forward * platformSize);
+        return anchorPosition + (Vector3.forward * platformSize);
     }
 
     public void ClearAllPulpits()
@@ -327,7 +323,9 @@ public class PulpitManager : MonoBehaviour
                 Destroy(pulpit.gameObject);
         }
         activePulpits.Clear();
+        deterministicPathCache.Clear();
         recentPositionsHistory.Clear();
+        nextSequenceIndexToSpawn = 0;
 
         foreach (Transform child in transform)
         {

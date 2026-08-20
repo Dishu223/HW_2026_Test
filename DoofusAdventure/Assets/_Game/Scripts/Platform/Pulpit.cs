@@ -2,11 +2,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Controls an individual pulpit platform using a deterministic mathematical timeline:
-/// State at time t = f(worldTime, spawnTime, destroyTime).
-/// - If t < spawnTime: Platform was born in the future -> Un-spawns / self-destructs!
-/// - If spawnTime <= t < destroyTime: Platform is ALIVE with remainingTime = destroyTime - t!
-/// - If t >= destroyTime: Platform is collapsed.
+/// Controls an individual pulpit platform with sequence index tracking.
 /// </summary>
 public class Pulpit : MonoBehaviour
 {
@@ -28,10 +24,12 @@ public class Pulpit : MonoBehaviour
     private bool hasPlayerVisited = false;
     private Material runtimeMaterial;
     private bool isInitialized = false;
+    private int platformSequenceIndex = 0;
 
     public bool IsDestroyed => isDestroyed;
     public float RemainingTime => remainingTime;
     public float SpawnWorldTime => spawnWorldTime;
+    public int PlatformSequenceIndex => platformSequenceIndex;
 
     private void Awake()
     {
@@ -52,13 +50,15 @@ public class Pulpit : MonoBehaviour
     {
         if (!isInitialized)
         {
-            InitializeTimeline(RewindManager.Instance != null ? RewindManager.Instance.WorldTime : 0f);
+            InitializeTimeline(RewindManager.Instance != null ? RewindManager.Instance.WorldTime : 0f, 0);
         }
     }
 
-    public void InitializeTimeline(float currentWorldTime)
+    public void InitializeTimeline(float currentWorldTime, int sequenceIndex)
     {
         isInitialized = true;
+        platformSequenceIndex = sequenceIndex;
+
         float minTime = GameConfig.Instance != null ? GameConfig.Instance.MinDestroyTime : 5f;
         float maxTime = GameConfig.Instance != null ? GameConfig.Instance.MaxDestroyTime : 5f;
 
@@ -78,14 +78,12 @@ public class Pulpit : MonoBehaviour
     {
         float currentWorldTime = RewindManager.Instance != null ? RewindManager.Instance.WorldTime : 0f;
 
-        // 1. If we rewound past the moment this platform was spawned -> It does not exist yet in the past!
         if (currentWorldTime < spawnWorldTime - 0.05f && spawnWorldTime > 0.1f)
         {
             Destroy(gameObject);
             return;
         }
 
-        // 2. If current time is past expiration -> Collapse platform
         if (currentWorldTime >= destroyWorldTime)
         {
             if (!isDestroyed)
@@ -95,7 +93,6 @@ public class Pulpit : MonoBehaviour
             return;
         }
 
-        // 3. Platform is ALIVE in the current slice of time!
         if (isDestroyed)
         {
             ResurrectPulpit();
