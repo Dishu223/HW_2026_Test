@@ -3,7 +3,7 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// Controls Doofus physics movement and detects fatal falls.
-/// Intercepts fall with Prince of Persia Time Rewind if charges are available.
+/// Intercepts fall with Prince of Persia Time Rewind with landing grace protection.
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
 public class DoofusController : MonoBehaviour
@@ -15,6 +15,7 @@ public class DoofusController : MonoBehaviour
     private Vector3 moveInput;
     private bool isInputActive = false;
     private bool isRewinding = false;
+    private float fallGraceCooldown = 0f;
 
     public Vector3 MoveInput => moveInput;
     public bool IsMoving => isInputActive && moveInput.sqrMagnitude > 0.01f;
@@ -58,6 +59,11 @@ public class DoofusController : MonoBehaviour
 
     private void Update()
     {
+        if (fallGraceCooldown > 0f)
+        {
+            fallGraceCooldown -= Time.deltaTime;
+        }
+
         if (!isInputActive || isRewinding)
         {
             moveInput = Vector3.zero;
@@ -66,8 +72,8 @@ public class DoofusController : MonoBehaviour
 
         moveInput = ReadKeyboardInput();
 
-        // Detect fatal fall
-        if (transform.position.y < fallThresholdY)
+        // Detect fatal fall (only when grace cooldown has elapsed)
+        if (fallGraceCooldown <= 0f && transform.position.y < fallThresholdY)
         {
             if (RewindManager.Instance != null && RewindManager.Instance.CanRewind)
             {
@@ -113,6 +119,7 @@ public class DoofusController : MonoBehaviour
     {
         isInputActive = true;
         isRewinding = false;
+        fallGraceCooldown = 0f;
 
         if (rb != null)
         {
@@ -153,6 +160,24 @@ public class DoofusController : MonoBehaviour
     {
         isRewinding = false;
         isInputActive = true;
+        // Grant 1.5s grace period so player lands safely without re-triggering fall
+        fallGraceCooldown = 1.5f;
+
+        if (rb != null)
+        {
+            rb.isKinematic = false;
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+        }
+
+        // Ensure player is safely above the platform surface
+        if (transform.position.y < 0.8f)
+        {
+            Vector3 pos = transform.position;
+            pos.y = 1.0f;
+            transform.position = pos;
+            if (rb != null) rb.position = pos;
+        }
     }
     #endregion
 }

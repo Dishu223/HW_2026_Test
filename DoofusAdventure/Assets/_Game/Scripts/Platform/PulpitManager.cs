@@ -4,7 +4,7 @@ using UnityEngine;
 
 /// <summary>
 /// Manages spawning and positioning of Pulpit platforms.
-/// Spawns adjacent platforms continuously during gameplay.
+/// Spawns adjacent platforms continuously, properly managing active vs collapsed pulpits.
 /// </summary>
 public class PulpitManager : MonoBehaviour
 {
@@ -16,7 +16,7 @@ public class PulpitManager : MonoBehaviour
     [Header("Grid Configuration")]
     [SerializeField] private float platformSize = 5f;
 
-    private readonly List<GameObject> activePulpits = new List<GameObject>();
+    private readonly List<Pulpit> activePulpits = new List<Pulpit>();
     private Vector3 currentPulpitPosition = Vector3.zero;
     private Vector3 previousPulpitPosition = Vector3.zero;
     private Coroutine spawnRoutine;
@@ -101,11 +101,13 @@ public class PulpitManager : MonoBehaviour
             float spawnDelay = GameConfig.Instance != null ? GameConfig.Instance.SpawnTime : 2.5f;
             yield return new WaitForSeconds(spawnDelay);
 
-            activePulpits.RemoveAll(item => item == null);
+            // Remove destroyed or collapsed pulpits so we never block new spawns!
+            activePulpits.RemoveAll(item => item == null || item.IsDestroyed);
 
+            // Wait only if 2 active solid pulpits are currently alive
             while (activePulpits.Count >= 2)
             {
-                activePulpits.RemoveAll(item => item == null);
+                activePulpits.RemoveAll(item => item == null || item.IsDestroyed);
                 yield return null;
             }
 
@@ -126,10 +128,15 @@ public class PulpitManager : MonoBehaviour
             return;
         }
 
-        GameObject newPulpit = Instantiate(pulpitPrefab, position, Quaternion.identity, transform);
-        newPulpit.transform.localScale = new Vector3(platformSize, 0.5f, platformSize);
+        GameObject newPulpitObj = Instantiate(pulpitPrefab, position, Quaternion.identity, transform);
+        newPulpitObj.transform.localScale = new Vector3(platformSize, 0.5f, platformSize);
 
-        activePulpits.Add(newPulpit);
+        Pulpit pulpitScript = newPulpitObj.GetComponent<Pulpit>();
+        if (pulpitScript != null)
+        {
+            activePulpits.Add(pulpitScript);
+        }
+
         GameEvents.TriggerPulpitSpawned(position);
     }
 
@@ -142,9 +149,9 @@ public class PulpitManager : MonoBehaviour
             Vector3 candidatePos = currentPulpitPosition + (dir * platformSize);
 
             bool isOccupied = false;
-            foreach (GameObject active in activePulpits)
+            foreach (Pulpit active in activePulpits)
             {
-                if (active != null && Vector3.Distance(active.transform.position, candidatePos) < 1f)
+                if (active != null && !active.IsDestroyed && Vector3.Distance(active.transform.position, candidatePos) < 1f)
                 {
                     isOccupied = true;
                     break;
@@ -176,11 +183,17 @@ public class PulpitManager : MonoBehaviour
     public void ClearAllPulpits()
     {
         StopSpawning();
-        foreach (GameObject pulpit in activePulpits)
+        foreach (Pulpit pulpit in activePulpits)
         {
             if (pulpit != null)
-                Destroy(pulpit);
+                Destroy(pulpit.gameObject);
         }
         activePulpits.Clear();
+
+        // Also clean up any lingering inactive platform GameObjects
+        foreach (Transform child in transform)
+        {
+            Destroy(child.gameObject);
+        }
     }
 }
