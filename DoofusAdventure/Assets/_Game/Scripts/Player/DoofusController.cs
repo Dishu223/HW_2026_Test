@@ -3,7 +3,7 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// Controls Doofus physics movement and detects fatal falls.
-/// Intercepts fall with Prince of Persia Time Rewind, with seamless fluid landing.
+/// Automatically equips DoofusLocomotionVFX for visual game juice.
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
 public class DoofusController : MonoBehaviour
@@ -27,6 +27,12 @@ public class DoofusController : MonoBehaviour
         rb.useGravity = true;
 
         transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+
+        // Automatically add locomotion juice (dust puffs, skid clouds)
+        if (GetComponent<DoofusLocomotionVFX>() == null)
+        {
+            gameObject.AddComponent<DoofusLocomotionVFX>();
+        }
     }
 
     private void Start()
@@ -159,7 +165,6 @@ public class DoofusController : MonoBehaviour
         isInputActive = true;
         fallGraceCooldown = 1.5f;
 
-        // Zero velocity smoothly without harsh position snapping!
         if (rb != null)
         {
             rb.isKinematic = false;

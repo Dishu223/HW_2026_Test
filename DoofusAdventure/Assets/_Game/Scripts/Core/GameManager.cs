@@ -1,29 +1,12 @@
 ﻿using UnityEngine;
 
 /// <summary>
-/// Controls overall game lifecycle states:
-/// StartScreen (paused) -> Playing (unpaused) -> GameOver.
-/// Ensures resuming from Rewind continues active run without resetting world state.
+/// Central Game State Machine and Coordinator.
+/// Ensures all managers (ScoreManager, VFXManager, RewindManager) are active and synchronized.
 /// </summary>
 public class GameManager : MonoBehaviour
 {
-    private static GameManager instance;
-    public static GameManager Instance
-    {
-        get
-        {
-            if (instance == null)
-            {
-                instance = FindAnyObjectByType<GameManager>();
-                if (instance == null)
-                {
-                    GameObject go = new GameObject("GameManager");
-                    instance = go.AddComponent<GameManager>();
-                }
-            }
-            return instance;
-        }
-    }
+    public static GameManager Instance { get; private set; }
 
     public enum GameState
     {
@@ -34,31 +17,36 @@ public class GameManager : MonoBehaviour
         GameOver
     }
 
-    [Header("Current State")]
+    [Header("Game State")]
     [SerializeField] private GameState currentState = GameState.StartScreen;
 
     public GameState CurrentState => currentState;
     public bool IsPlaying => currentState == GameState.Playing;
+    public bool IsStartScreen => currentState == GameState.StartScreen;
 
     private void Awake()
     {
-        if (instance != null && instance != this)
+        if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
             return;
         }
+        Instance = this;
 
-        instance = this;
-        DontDestroyOnLoad(gameObject);
-    }
-
-    private void Start()
-    {
-        SetState(GameState.StartScreen);
+        // Auto-instantiate VFXManager if not present in the scene
+        if (FindAnyObjectByType<VFXManager>() == null)
+        {
+            GameObject vfxObj = new GameObject("VFXManager");
+            vfxObj.AddComponent<VFXManager>();
+        }
     }
 
     private void OnEnable()
     {
+        GameEvents.OnGameStart += HandleGameStart;
+        GameEvents.OnGameOver += HandleGameOver;
+        GameEvents.OnGameRestart += HandleGameRestart;
+        GameEvents.OnReturnToLobby += HandleReturnToLobby;
         GameEvents.OnDoofusFell += HandleDoofusFell;
         GameEvents.OnRewindStart += HandleRewindStart;
         GameEvents.OnRewindComplete += HandleRewindComplete;
@@ -66,68 +54,47 @@ public class GameManager : MonoBehaviour
 
     private void OnDisable()
     {
+        GameEvents.OnGameStart -= HandleGameStart;
+        GameEvents.OnGameOver -= HandleGameOver;
+        GameEvents.OnGameRestart -= HandleGameRestart;
+        GameEvents.OnReturnToLobby -= HandleReturnToLobby;
         GameEvents.OnDoofusFell -= HandleDoofusFell;
         GameEvents.OnRewindStart -= HandleRewindStart;
         GameEvents.OnRewindComplete -= HandleRewindComplete;
     }
 
-    public void SetState(GameState newState)
-    {
-        currentState = newState;
-        Debug.Log($"[GameManager] State changed to: {currentState}");
-
-        switch (currentState)
-        {
-            case GameState.StartScreen:
-                Time.timeScale = 0f;
-                break;
-
-            case GameState.Lobby:
-                Time.timeScale = 0f;
-                GameEvents.TriggerReturnToLobby();
-                break;
-
-            case GameState.Playing:
-                Time.timeScale = 1f;
-                break;
-
-            case GameState.Rewinding:
-                Time.timeScale = 1f;
-                break;
-
-            case GameState.GameOver:
-                Time.timeScale = 1f;
-                GameEvents.TriggerGameOver();
-                break;
-        }
-    }
-
     public void StartGame()
-    {
-        SetState(GameState.Playing);
-        GameEvents.TriggerGameStart(); // Only trigger fresh start on user play/restart!
-    }
-
-    public void RestartGame()
     {
         SetState(GameState.Playing);
         GameEvents.TriggerGameStart();
     }
 
-    private void HandleDoofusFell()
+    public void SetState(GameState newState)
     {
-        SetState(GameState.GameOver);
+        if (currentState == newState) return;
+
+        currentState = newState;
+        Debug.Log($"[GameManager] State changed to: {newState}");
+
+        switch (newState)
+        {
+            case GameState.StartScreen:
+                break;
+            case GameState.Playing:
+                break;
+            case GameState.Rewinding:
+                break;
+            case GameState.GameOver:
+                GameEvents.TriggerGameOver();
+                break;
+        }
     }
 
-    private void HandleRewindStart()
-    {
-        SetState(GameState.Rewinding);
-    }
-
-    private void HandleRewindComplete()
-    {
-        // Resume active gameplay state WITHOUT restarting the game or resetting platforms/score!
-        currentState = GameState.Playing;
-        Time.timeScale = 1f;
-    }
+    private void HandleGameStart() => SetState(GameState.Playing);
+    private void HandleGameOver() => SetState(GameState.GameOver);
+    private void HandleGameRestart() => SetState(GameState.Playing);
+    private void HandleReturnToLobby() => SetState(GameState.StartScreen);
+    private void HandleDoofusFell() => SetState(GameState.GameOver);
+    private void HandleRewindStart() => SetState(GameState.Rewinding);
+    private void HandleRewindComplete() => SetState(GameState.Playing);
 }
