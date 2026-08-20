@@ -5,8 +5,8 @@ using UnityEngine;
 /// <summary>
 /// Controls an individual pulpit platform:
 /// - Records rolling snapshot history of lifetime and destruction state
-/// - Plays in reverse during Prince of Persia Time Rewind (reconstructing destroyed platforms!)
-/// - Smooth color shift (Green -> Yellow -> Red in forward, Red -> Yellow -> Green in reverse)
+/// - Plays in reverse during Prince of Persia Time Rewind
+/// - Automatically un-spawns (dissolves) if rewound past its moment of creation!
 /// </summary>
 public class Pulpit : MonoBehaviour
 {
@@ -40,6 +40,7 @@ public class Pulpit : MonoBehaviour
     private bool hasPlayerVisited = false;
     private Material runtimeMaterial;
     private float timeSinceDestroyed = 0f;
+    private int initialSnapshotCountAtRewindStart = 0;
 
     public bool IsDestroyed => isDestroyed;
     public float RemainingTime => remainingTime;
@@ -94,12 +95,11 @@ public class Pulpit : MonoBehaviour
 
     private void FixedUpdate()
     {
-        // 1. Record history while playing normally
+        // 1. Record history during gameplay
         if (!isRewinding && GameManager.Instance != null && GameManager.Instance.IsPlaying)
         {
             historyBuffer.AddLast(new PulpitSnapshot(remainingTime, isDestroyed));
 
-            // Keep ~4.0 seconds of history
             int maxSnapshots = Mathf.RoundToInt(4.0f / Time.fixedDeltaTime);
             while (historyBuffer.Count > maxSnapshots)
             {
@@ -120,7 +120,6 @@ public class Pulpit : MonoBehaviour
         if (isDestroyed)
         {
             timeSinceDestroyed += Time.deltaTime;
-            // Only truly destroy from memory after 6 seconds (ensuring it stays in the rewind window!)
             if (timeSinceDestroyed > 6.0f)
             {
                 Destroy(gameObject);
@@ -128,7 +127,6 @@ public class Pulpit : MonoBehaviour
             return;
         }
 
-        // Freeze when on start menu
         if (GameManager.Instance != null && !GameManager.Instance.IsPlaying)
         {
             UpdateTileText(remainingTime);
@@ -149,14 +147,20 @@ public class Pulpit : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Rewinds this platform's timer and resurrects it if it was collapsed!
-    /// </summary>
     public void RewindStep()
     {
-        if (historyBuffer.Count == 0) return;
+        // If this platform was spawned AFTER the rewind point, un-spawn it when buffer empties!
+        if (historyBuffer.Count == 0)
+        {
+            if (initialSnapshotCountAtRewindStart < 35 && transform.position != Vector3.zero)
+            {
+                // This platform was born in the future! Un-spawn it.
+                Destroy(gameObject);
+                return;
+            }
+            return;
+        }
 
-        // Skip frames to match rewind playback speed
         int skip = 2;
         for (int i = 0; i < skip && historyBuffer.Count > 0; i++)
         {
@@ -164,8 +168,7 @@ public class Pulpit : MonoBehaviour
             historyBuffer.RemoveLast();
 
             remainingTime = snap.remainingTime;
-            
-            // If it was dead, resurrect it!
+
             if (!snap.isDestroyed && isDestroyed)
             {
                 ResurrectPulpit();
@@ -259,6 +262,7 @@ public class Pulpit : MonoBehaviour
     private void HandleRewindStart()
     {
         isRewinding = true;
+        initialSnapshotCountAtRewindStart = historyBuffer.Count;
     }
 
     private void HandleRewindComplete()

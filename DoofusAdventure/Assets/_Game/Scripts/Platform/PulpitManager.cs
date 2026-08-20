@@ -4,7 +4,7 @@ using UnityEngine;
 
 /// <summary>
 /// Manages spawning and positioning of Pulpit platforms.
-/// Spawns adjacent platforms continuously, properly managing active vs collapsed pulpits.
+/// Pauses spawning during Rewind and re-synchronizes adjacent platforms on resume.
 /// </summary>
 public class PulpitManager : MonoBehaviour
 {
@@ -45,6 +45,8 @@ public class PulpitManager : MonoBehaviour
         GameEvents.OnGameRestart += RestartSpawning;
         GameEvents.OnGameOver += StopSpawning;
         GameEvents.OnReturnToLobby += ClearAllPulpits;
+        GameEvents.OnRewindStart += HandleRewindStart;
+        GameEvents.OnRewindComplete += HandleRewindComplete;
     }
 
     private void OnDisable()
@@ -53,6 +55,8 @@ public class PulpitManager : MonoBehaviour
         GameEvents.OnGameRestart -= RestartSpawning;
         GameEvents.OnGameOver -= StopSpawning;
         GameEvents.OnReturnToLobby -= ClearAllPulpits;
+        GameEvents.OnRewindStart -= HandleRewindStart;
+        GameEvents.OnRewindComplete -= HandleRewindComplete;
     }
 
     private void Start()
@@ -94,6 +98,68 @@ public class PulpitManager : MonoBehaviour
         }
     }
 
+    private void HandleRewindStart()
+    {
+        StopSpawning();
+    }
+
+    private void HandleRewindComplete()
+    {
+        // Re-synchronize active platforms list
+        RefreshActivePulpitsList();
+
+        // Find the platform Doofus is currently standing on
+        Pulpit playerPulpit = GetClosestAlivePulpit(Vector3.zero);
+        DoofusController doofus = FindAnyObjectByType<DoofusController>();
+        if (doofus != null)
+        {
+            playerPulpit = GetClosestAlivePulpit(doofus.transform.position);
+        }
+
+        if (playerPulpit != null)
+        {
+            currentPulpitPosition = playerPulpit.transform.position;
+        }
+
+        // Resume continuous spawn loop smoothly
+        StopSpawning();
+        spawnRoutine = StartCoroutine(SpawnLoopCoroutine());
+    }
+
+    private void RefreshActivePulpitsList()
+    {
+        activePulpits.Clear();
+        Pulpit[] all = FindObjectsByType<Pulpit>(FindObjectsSortMode.None);
+        foreach (Pulpit p in all)
+        {
+            if (p != null && !p.IsDestroyed)
+            {
+                activePulpits.Add(p);
+            }
+        }
+    }
+
+    private Pulpit GetClosestAlivePulpit(Vector3 origin)
+    {
+        Pulpit[] all = FindObjectsByType<Pulpit>(FindObjectsSortMode.None);
+        Pulpit closest = null;
+        float minDst = float.MaxValue;
+
+        foreach (Pulpit p in all)
+        {
+            if (p != null && !p.IsDestroyed)
+            {
+                float dst = Vector3.Distance(origin, p.transform.position);
+                if (dst < minDst)
+                {
+                    minDst = dst;
+                    closest = p;
+                }
+            }
+        }
+        return closest;
+    }
+
     private IEnumerator SpawnLoopCoroutine()
     {
         while (true)
@@ -101,10 +167,8 @@ public class PulpitManager : MonoBehaviour
             float spawnDelay = GameConfig.Instance != null ? GameConfig.Instance.SpawnTime : 2.5f;
             yield return new WaitForSeconds(spawnDelay);
 
-            // Remove destroyed or collapsed pulpits so we never block new spawns!
             activePulpits.RemoveAll(item => item == null || item.IsDestroyed);
 
-            // Wait only if 2 active solid pulpits are currently alive
             while (activePulpits.Count >= 2)
             {
                 activePulpits.RemoveAll(item => item == null || item.IsDestroyed);
@@ -190,7 +254,6 @@ public class PulpitManager : MonoBehaviour
         }
         activePulpits.Clear();
 
-        // Also clean up any lingering inactive platform GameObjects
         foreach (Transform child in transform)
         {
             Destroy(child.gameObject);
