@@ -132,7 +132,6 @@ GameObject:
   - component: {fileID: 44692540}
   - component: {fileID: 44692539}
   - component: {fileID: 44692543}
-  - component: {fileID: 44692544}
   - component: {fileID: 44692545}
   m_Layer: 5
   m_Name: UI_Canvas
@@ -242,23 +241,9 @@ MonoBehaviour:
   scoreText: {fileID: 1243814982}
   highScoreText: {fileID: 0}
   timerFillBar: {fileID: 675137769}
-  timerSecondsText: {fileID: 0}
   timerFullColor: {r: 0.18, g: 0.8, b: 0.44, a: 1}
   timerWarnColor: {r: 0.95, g: 0.77, b: 0.06, a: 1}
   timerCritColor: {r: 0.91, g: 0.3, b: 0.24, a: 1}
-  hudCanvasGroup: {fileID: 2131892454}
---- !u!225 &44692544
-CanvasGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 44692538}
-  m_Enabled: 1
-  m_Alpha: 1
-  m_Interactable: 1
-  m_BlocksRaycasts: 1
-  m_IgnoreParentGroups: 0
 --- !u!114 &44692545
 MonoBehaviour:
   m_ObjectHideFlags: 0

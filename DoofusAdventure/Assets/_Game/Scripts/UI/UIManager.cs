@@ -1,9 +1,9 @@
 ﻿using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
 /// Master UI Router managing screen switching.
-/// Directly toggles panel GameObjects (Start Screen, HUD, Game Over)
-/// so inactive screens cannot intercept input or run background Update loops.
+/// Auto-detects panels if Inspector links are broken.
 /// </summary>
 public class UIManager : MonoBehaviour
 {
@@ -24,6 +24,42 @@ public class UIManager : MonoBehaviour
         }
 
         Instance = this;
+
+        // Auto-Recovery: If Unity cleared the fields when we changed types, automatically find them!
+        if (startScreenPanel == null)
+        {
+            Transform found = transform.Find("StartScreen_Panel");
+            if (found != null) startScreenPanel = found.gameObject;
+        }
+        
+        if (hudPanel == null)
+        {
+            Transform found = transform.Find("HUD_Panel");
+            if (found != null) hudPanel = found.gameObject;
+        }
+        
+        if (gameOverPanel == null)
+        {
+            Transform found = transform.Find("GameOver_Panel");
+            if (found != null) gameOverPanel = found.gameObject;
+        }
+
+        // Failsafe: Ensure Root CanvasGroup is fully visible if it exists
+        CanvasGroup rootCG = GetComponent<CanvasGroup>();
+        if (rootCG != null)
+        {
+            rootCG.alpha = 1f;
+            rootCG.interactable = true;
+            rootCG.blocksRaycasts = true;
+        }
+
+        // Failsafe: Ensure Canvas has correct Render Mode
+        Canvas canvas = GetComponent<Canvas>();
+        if (canvas != null)
+        {
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.enabled = true;
+        }
     }
 
     private void Start()
@@ -81,11 +117,15 @@ public class UIManager : MonoBehaviour
 
     private void SetPanelActive(GameObject panel, bool active)
     {
-        if (panel == null) return;
+        if (panel == null)
+        {
+            Debug.LogWarning("[UIManager] Tried to set a panel active, but it is NULL! Ensure names match perfectly.");
+            return;
+        }
 
         panel.SetActive(active);
 
-        // If it has a CanvasGroup, ensure it is fully opaque and interactive
+        // Ensure canvas group states match
         CanvasGroup cg = panel.GetComponent<CanvasGroup>();
         if (cg != null)
         {
