@@ -3,9 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Manages spawning and lifecycle of Pulpit platforms.
-/// Enforces the rule that a maximum of 2 Pulpits exist simultaneously,
-/// positions them 9 units adjacently, and prevents duplicate/backtracking positions.
+/// Manages spawning and positioning of Pulpit platforms.
+/// Enforces max 2 simultaneous platforms, adjacent grid offsets, and prevents duplicate/backtracking positions.
 /// </summary>
 public class PulpitManager : MonoBehaviour
 {
@@ -13,20 +12,20 @@ public class PulpitManager : MonoBehaviour
     [SerializeField] private GameObject pulpitPrefab;
 
     [Header("Grid Configuration")]
-    [SerializeField] private float platformSize = 9f; // 9x9 platform dimension
+    [Tooltip("Size/spacing of platforms. 5 units makes hopping snappy and fast-paced!")]
+    [SerializeField] private float platformSize = 5f;
 
     private readonly List<GameObject> activePulpits = new List<GameObject>();
     private Vector3 currentPulpitPosition = Vector3.zero;
     private Vector3 previousPulpitPosition = Vector3.zero;
     private Coroutine spawnRoutine;
 
-    // The 4 adjacent cardinal directions
     private readonly Vector3[] adjacentDirections = new Vector3[]
     {
-        Vector3.forward, // ( 0, 0,  1)
-        Vector3.back,    // ( 0, 0, -1)
-        Vector3.right,   // ( 1, 0,  0)
-        Vector3.left     // (-1, 0,  0)
+        Vector3.forward,
+        Vector3.back,
+        Vector3.right,
+        Vector3.left
     };
 
     private void OnEnable()
@@ -45,13 +44,9 @@ public class PulpitManager : MonoBehaviour
 
     private void Start()
     {
-        // Auto-start spawning if starting directly in play mode
         StartGameSpawning();
     }
 
-    /// <summary>
-    /// Clears any existing platforms and spawns the starting platform at (0, 0, 0).
-    /// </summary>
     public void StartGameSpawning()
     {
         StopSpawning();
@@ -60,10 +55,8 @@ public class PulpitManager : MonoBehaviour
         currentPulpitPosition = Vector3.zero;
         previousPulpitPosition = Vector3.zero;
 
-        // Spawn initial starting platform
         SpawnPulpitAt(currentPulpitPosition);
 
-        // Begin the spawn timer loop
         spawnRoutine = StartCoroutine(SpawnLoopCoroutine());
     }
 
@@ -81,10 +74,6 @@ public class PulpitManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Coroutine that waits for pulpit_spawn_time before spawning the next adjacent platform.
-    /// Ensures no more than 2 pulpits are alive simultaneously.
-    /// </summary>
     private IEnumerator SpawnLoopCoroutine()
     {
         while (true)
@@ -92,17 +81,15 @@ public class PulpitManager : MonoBehaviour
             float spawnDelay = GameConfig.Instance != null ? GameConfig.Instance.SpawnTime : 2.5f;
             yield return new WaitForSeconds(spawnDelay);
 
-            // Clean up any destroyed platforms from our active tracking list
             activePulpits.RemoveAll(item => item == null);
 
-            // Wait if we already have 2 active pulpits (assignment rule: max 2 simultaneous pulpits)
+            // Wait if 2 pulpits are already active
             while (activePulpits.Count >= 2)
             {
                 activePulpits.RemoveAll(item => item == null);
                 yield return null;
             }
 
-            // Calculate next valid adjacent position
             Vector3 nextPos = GetNextAdjacentPosition();
 
             previousPulpitPosition = currentPulpitPosition;
@@ -112,9 +99,6 @@ public class PulpitManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Instantiates a pulpit at target coordinates and tracks it in the active list.
-    /// </summary>
     private void SpawnPulpitAt(Vector3 position)
     {
         if (pulpitPrefab == null)
@@ -124,15 +108,13 @@ public class PulpitManager : MonoBehaviour
         }
 
         GameObject newPulpit = Instantiate(pulpitPrefab, position, Quaternion.identity, transform);
-        activePulpits.Add(newPulpit);
+        // Automatically match platform scale to configured platformSize
+        newPulpit.transform.localScale = new Vector3(platformSize, 0.5f, platformSize);
 
+        activePulpits.Add(newPulpit);
         GameEvents.TriggerPulpitSpawned(position);
     }
 
-    /// <summary>
-    /// Picks an adjacent position (offset by 9 units) that is neither the current position
-    /// nor the immediately previous position, and is not occupied by an active platform.
-    /// </summary>
     private Vector3 GetNextAdjacentPosition()
     {
         List<Vector3> validPositions = new List<Vector3>();
@@ -141,7 +123,6 @@ public class PulpitManager : MonoBehaviour
         {
             Vector3 candidatePos = currentPulpitPosition + (dir * platformSize);
 
-            // Check if this position is occupied by any active platform
             bool isOccupied = false;
             foreach (GameObject active in activePulpits)
             {
@@ -152,14 +133,12 @@ public class PulpitManager : MonoBehaviour
                 }
             }
 
-            // Rule: Don't spawn on occupied spots and avoid immediate backtracking
             if (!isOccupied && candidatePos != previousPulpitPosition)
             {
                 validPositions.Add(candidatePos);
             }
         }
 
-        // Fallback: If all candidates are filtered out, allow any non-occupied adjacent spot
         if (validPositions.Count == 0)
         {
             foreach (Vector3 dir in adjacentDirections)
@@ -172,7 +151,6 @@ public class PulpitManager : MonoBehaviour
             }
         }
 
-        // Pick one randomly from the valid adjacent positions
         int randomIndex = Random.Range(0, validPositions.Count);
         return validPositions[randomIndex];
     }

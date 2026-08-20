@@ -2,9 +2,10 @@
 using UnityEngine;
 
 /// <summary>
-/// Exaggerated cartoon procedural animation controller for Doofus.
-/// Creates hypercasual juicy movement: snappy direction turning, exaggerated body leaning,
-/// trailing bobblehead lag, squash & stretch, and dynamic eye expressions.
+/// Cartoon procedural animator with organic inertia follow-through and overshoot:
+/// - Smooth acceleration lean and head drag
+/// - Exaggerated stopping brake: body pitches forward, head whips forward with jelly spring decay
+/// - Dynamic eye expressions & landing squash
 /// </summary>
 public class DoofusAnimator : MonoBehaviour
 {
@@ -14,16 +15,20 @@ public class DoofusAnimator : MonoBehaviour
     [SerializeField] private Transform leftEyeTransform;
     [SerializeField] private Transform rightEyeTransform;
 
-    [Header("Hypercasual Movement Tuning")]
-    [SerializeField] private float turnSpeed = 22f;          // Snappy fast turning
-    [SerializeField] private float maxLeanAngle = 28f;       // Exaggerated cartoon lean
-    [SerializeField] private float leanSmoothSpeed = 16f;    // Snappy lean responsiveness
-    [SerializeField] private float headLagDistance = 0.28f;  // Head pulls visibly backward
-    [SerializeField] private float headSpringTime = 0.08f;   // Spring elasticity
+    [Header("Turning & Acceleration Lean")]
+    [SerializeField] private float turnSpeed = 18f;
+    [SerializeField] private float runLeanBackwardAngle = 22f; // Lean back while running
+    [SerializeField] private float stopOvershootAngle = 18f;     // Pitch forward when braking
+    [SerializeField] private float leanSmoothSpeed = 10f;
+
+    [Header("Head Spring Physics")]
+    [SerializeField] private float headRunLagDistance = 0.22f;   // Head drags back while running
+    [SerializeField] private float headStopOvershoot = 0.25f;    // Head whips forward on stop
+    [SerializeField] private float headSpringTime = 0.12f;
 
     [Header("Idle Breathing")]
-    [SerializeField] private float idleBounceSpeed = 4.5f;
-    [SerializeField] private float idleBounceHeight = 0.05f;
+    [SerializeField] private float idleBounceSpeed = 4f;
+    [SerializeField] private float idleBounceHeight = 0.04f;
 
     [Header("Squash & Stretch")]
     [SerializeField] private float squashAmount = 0.72f;
@@ -34,6 +39,11 @@ public class DoofusAnimator : MonoBehaviour
     private Vector3 defaultHeadLocalPos;
     private Vector3 defaultEyeScale;
     private Vector3 headVelocity;
+
+    private bool wasMovingLastFrame = false;
+    private float stopOvershootTimer = 0f;
+    private const float OVERSHOOT_DURATION = 0.35f;
+
     private Coroutine squashRoutine;
     private bool isFalling = false;
 
@@ -81,34 +91,56 @@ public class DoofusAnimator : MonoBehaviour
             return;
         }
 
-        ApplyMovementRotationAndLean();
-        ApplyHeadBobbleAndLag();
-        ApplyIdleBounce();
-    }
-
-    /// <summary>
-    /// Snappily rotates Doofus to face travel direction and applies exaggerated cartoon lean.
-    /// </summary>
-    private void ApplyMovementRotationAndLean()
-    {
         Vector3 moveInput = controller != null ? controller.MoveInput : Vector3.zero;
         bool isMoving = moveInput.sqrMagnitude > 0.01f;
 
-        // 1. Snappy rotation towards travel direction
-        if (isMoving)
+        // Detect stopping moment (transition from moving to stopped)
+        if (wasMovingLastFrame && !isMoving)
         {
-            Quaternion targetLookRotation = Quaternion.LookRotation(moveInput, Vector3.up);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetLookRotation, Time.deltaTime * turnSpeed);
+            stopOvershootTimer = OVERSHOOT_DURATION; // Trigger the forward brake whip
+        }
+        wasMovingLastFrame = isMoving;
+
+        if (stopOvershootTimer > 0f)
+        {
+            stopOvershootTimer -= Time.deltaTime;
         }
 
-        // 2. Exaggerated body lean (tilts backward from travel direction for cartoon inertia)
+        ApplyMovementAndBraking(moveInput, isMoving);
+        ApplyHeadSpringAndOvershoot(moveInput, isMoving);
+        ApplyIdleBounce(isMoving);
+    }
+
+    /// <summary>
+    /// Smoothly rotates character towards movement, leans back during run,
+    /// and pitches forward with spring damping when stopping.
+    /// </summary>
+    private void ApplyMovementAndBraking(Vector3 moveInput, bool isMoving)
+    {
+        // 1. Smooth rotation
+        if (isMoving)
+        {
+            Quaternion targetLook = Quaternion.LookRotation(moveInput, Vector3.up);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetLook, Time.deltaTime * turnSpeed);
+        }
+
+        // 2. Body Lean / Brake Overshoot
         if (bodyTransform != null)
         {
             Quaternion targetLean = Quaternion.identity;
+
             if (isMoving)
             {
-                // Tilt backward relative to current forward direction
-                targetLean = Quaternion.Euler(maxLeanAngle, 0f, 0f);
+                // Smoothly lean back while running
+                targetLean = Quaternion.Euler(runLeanBackwardAngle, 0f, 0f);
+            }
+            else if (stopOvershootTimer > 0f)
+            {
+                // Brake Overshoot: pitch forward with decaying spring oscillation
+                float progress = 1f - (stopOvershootTimer / OVERSHOOT_DURATION);
+                float springFactor = Mathf.Sin(progress * Mathf.PI * 2f) * (1f - progress);
+                float overshootAngle = -stopOvershootAngle * springFactor; // Negative X = pitch forward
+                targetLean = Quaternion.Euler(overshootAngle, 0f, 0f);
             }
 
             bodyTransform.localRotation = Quaternion.Slerp(bodyTransform.localRotation, targetLean, Time.deltaTime * leanSmoothSpeed);
@@ -116,38 +148,41 @@ public class DoofusAnimator : MonoBehaviour
     }
 
     /// <summary>
-    /// Head pulls backward in local space when moving and bobbles back when stopping.
+    /// Head drags backwards while moving, and whips forward on sudden stop with organic elasticity.
     /// </summary>
-    private void ApplyHeadBobbleAndLag()
+    private void ApplyHeadSpringAndOvershoot(Vector3 moveInput, bool isMoving)
     {
         if (headTransform == null) return;
 
-        Vector3 moveInput = controller != null ? controller.MoveInput : Vector3.zero;
-        bool isMoving = moveInput.sqrMagnitude > 0.01f;
-
-        // When moving, pull head backwards on local Z axis
         Vector3 targetHeadPos = defaultHeadLocalPos;
+
         if (isMoving)
         {
-            targetHeadPos = defaultHeadLocalPos + new Vector3(0f, -0.05f, -headLagDistance);
+            // Head drags back smoothly
+            targetHeadPos = defaultHeadLocalPos + new Vector3(0f, -0.04f, -headRunLagDistance);
+        }
+        else if (stopOvershootTimer > 0f)
+        {
+            // Head whips forward with decaying bounce
+            float progress = 1f - (stopOvershootTimer / OVERSHOOT_DURATION);
+            float springFactor = Mathf.Sin(progress * Mathf.PI * 2.5f) * (1f - progress);
+            float forwardOffset = headStopOvershoot * springFactor;
+            targetHeadPos = defaultHeadLocalPos + new Vector3(0f, -0.02f, forwardOffset);
         }
 
         headTransform.localPosition = Vector3.SmoothDamp(headTransform.localPosition, targetHeadPos, ref headVelocity, headSpringTime);
     }
 
     /// <summary>
-    /// Lively breathing bounce preserving body connection.
+    /// Subtle breathing bounce when completely at rest.
     /// </summary>
-    private void ApplyIdleBounce()
+    private void ApplyIdleBounce(bool isMoving)
     {
         if (bodyTransform == null) return;
 
-        // Only bounce when stationary
-        bool isMoving = controller != null && controller.IsMoving;
-        float targetBounce = isMoving ? 0f : Mathf.Sin(Time.time * idleBounceSpeed) * idleBounceHeight;
-
+        float targetBounce = (isMoving || stopOvershootTimer > 0f) ? 0f : Mathf.Sin(Time.time * idleBounceSpeed) * idleBounceHeight;
         Vector3 targetPos = defaultBodyLocalPos + new Vector3(0f, targetBounce, 0f);
-        bodyTransform.localPosition = Vector3.Lerp(bodyTransform.localPosition, targetPos, Time.deltaTime * 10f);
+        bodyTransform.localPosition = Vector3.Lerp(bodyTransform.localPosition, targetPos, Time.deltaTime * 8f);
     }
 
     private void TriggerLandSquash()
@@ -161,7 +196,7 @@ public class DoofusAnimator : MonoBehaviour
     private IEnumerator SquashAndStretchCoroutine()
     {
         Vector3 originalScale = Vector3.one;
-        Vector3 squashedScale = new Vector3(1.3f, squashAmount, 1.3f);
+        Vector3 squashedScale = new Vector3(1.25f, squashAmount, 1.25f);
         float halfDuration = squashDuration / 2f;
 
         float elapsed = 0f;
@@ -191,7 +226,7 @@ public class DoofusAnimator : MonoBehaviour
 
         if (normalizedTime < 0.25f)
         {
-            // Panicked state: huge bulging eyes with vibration
+            // Panicked state: bulging eyes with fast vibration
             scaleMultiplier = 1.75f + Mathf.Sin(Time.time * 30f) * 0.2f;
         }
         else if (normalizedTime < 0.5f)
@@ -201,7 +236,7 @@ public class DoofusAnimator : MonoBehaviour
         }
         else
         {
-            // Happy relaxed state
+            // Happy normal
             scaleMultiplier = 1f;
         }
 
