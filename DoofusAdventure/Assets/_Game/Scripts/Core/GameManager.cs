@@ -45,28 +45,22 @@ public class GameManager : MonoBehaviour
 
     private void OnEnable()
     {
-        GameEvents.OnGameStart += HandleGameStart;
-        GameEvents.OnGameOver += HandleGameOver;
-        GameEvents.OnGameRestart += HandleGameRestart;
         GameEvents.OnDoofusFell += HandleDoofusFell;
         GameEvents.OnRewindStart += HandleRewindStart;
         GameEvents.OnRewindComplete += HandleRewindComplete;
-        GameEvents.OnReturnToLobby += HandleReturnToLobby;
     }
 
     private void OnDisable()
     {
-        GameEvents.OnGameStart -= HandleGameStart;
-        GameEvents.OnGameOver -= HandleGameOver;
-        GameEvents.OnGameRestart -= HandleGameRestart;
         GameEvents.OnDoofusFell -= HandleDoofusFell;
         GameEvents.OnRewindStart -= HandleRewindStart;
         GameEvents.OnRewindComplete -= HandleRewindComplete;
-        GameEvents.OnReturnToLobby -= HandleReturnToLobby;
     }
 
     public void SetState(GameState newState)
     {
+        if (currentState == newState) return; // Prevent duplicate transitions
+
         currentState = newState;
         Debug.Log($"[GameManager] State changed to: {currentState}");
 
@@ -96,11 +90,15 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    #region Event Handlers
-    private void HandleGameStart() => SetState(GameState.Playing);
-    private void HandleGameOver() => SetState(GameState.GameOver);
-    private void HandleGameRestart() => SetState(GameState.Playing);
-    private void HandleReturnToLobby() => SetState(GameState.Lobby);
+    public void StartGame()
+    {
+        SetState(GameState.Playing);
+    }
+
+    public void RestartGame()
+    {
+        SetState(GameState.Playing);
+    }
 
     private void HandleDoofusFell()
     {
@@ -109,5 +107,4 @@ public class GameManager : MonoBehaviour
 
     private void HandleRewindStart() => SetState(GameState.Rewinding);
     private void HandleRewindComplete() => SetState(GameState.Playing);
-    #endregion
 }

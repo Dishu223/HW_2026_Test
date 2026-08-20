@@ -3,7 +3,9 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Handles Start Screen UI: triggers game start on Space, Enter, or Click.
+/// Simple, self-contained Start Screen controller:
+/// - Floats title and pulses prompt
+/// - When player presses Space or clicks, launches game and hides itself
 /// </summary>
 public class StartScreenUI : MonoBehaviour
 {
@@ -21,7 +23,7 @@ public class StartScreenUI : MonoBehaviour
 
     private void Update()
     {
-        // Float title
+        // Gentle title float
         if (titleText != null)
         {
             float newY = initialTitleY + Mathf.Sin(Time.unscaledTime * 3f) * 10f;
@@ -35,26 +37,19 @@ public class StartScreenUI : MonoBehaviour
             pressSpacePrompt.alpha = alpha;
         }
 
-        // Keyboard Space / Enter
-        Keyboard keyboard = Keyboard.current;
-        if (keyboard != null && (keyboard.spaceKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame))
-        {
-            StartGame();
-            return;
-        }
+        // Check Space, Enter, or Click
+        bool spacePressed = Keyboard.current != null && (Keyboard.current.spaceKey.wasPressedThisFrame || Keyboard.current.enterKey.wasPressedThisFrame);
+        bool mouseClicked = Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
 
-        // Mouse Left Click
-        Mouse mouse = Mouse.current;
-        if (mouse != null && mouse.leftButton.wasPressedThisFrame)
+        if (spacePressed || mouseClicked)
         {
-            StartGame();
-            return;
+            LaunchGame();
         }
     }
 
-    public void StartGame()
+    private void LaunchGame()
     {
-        Debug.Log("[StartScreenUI] Starting Game!");
+        Debug.Log("[StartScreenUI] Launching Game!");
 
         if (GameManager.Instance != null)
         {
@@ -64,5 +59,8 @@ public class StartScreenUI : MonoBehaviour
         {
             GameEvents.TriggerGameStart();
         }
+
+        // Hide this panel immediately
+        gameObject.SetActive(false);
     }
 }
