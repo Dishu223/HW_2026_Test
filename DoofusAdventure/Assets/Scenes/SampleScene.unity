@@ -248,11 +248,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 795402e5e3eb0ca469e7be537ad14aaf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DoofusLocomotionVFX
-  footstepParticles: {fileID: 0}
-  skidParticles: {fileID: 0}
   stepInterval: 0.18
-  dustPerStep: 2
-  dustPerSkid: 8
 --- !u!1 &330585543
 GameObject:
   m_ObjectHideFlags: 0
