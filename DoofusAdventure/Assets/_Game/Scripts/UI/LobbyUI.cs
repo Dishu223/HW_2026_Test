@@ -2,7 +2,7 @@
 using UnityEngine.UI;
 
 /// <summary>
-/// Customization Lobby UI where players click color buttons for Body, Head, and Eyes,
+/// Customization Lobby UI where players click color swatches for Body, Head, and Eyes,
 /// previewing Doofus in real-time, then press PLAY to start the run.
 /// </summary>
 public class LobbyUI : MonoBehaviour
@@ -15,6 +15,14 @@ public class LobbyUI : MonoBehaviour
     [Header("Color Button Prefab / Template")]
     [SerializeField] private Button colorButtonPrefab;
 
+    private CanvasGroup canvasGroup;
+
+    private void Awake()
+    {
+        canvasGroup = GetComponent<CanvasGroup>();
+        if (canvasGroup == null) canvasGroup = gameObject.AddComponent<CanvasGroup>();
+    }
+
     private void Start()
     {
         PopulateColorSwatches();
@@ -25,44 +33,55 @@ public class LobbyUI : MonoBehaviour
     /// </summary>
     public void PopulateColorSwatches()
     {
-        if (CustomizationManager.Instance == null || colorButtonPrefab == null) return;
+        if (CustomizationManager.Instance == null) return;
 
-        // Body Color Swatches
+        // Auto-generate swatch buttons if empty
         if (bodyColorButtonsContainer != null && bodyColorButtonsContainer.childCount <= 1)
         {
-            for (int i = 0; i < CustomizationManager.Instance.bodyColors.Length; i++)
-            {
-                int index = i;
-                Button btn = Instantiate(colorButtonPrefab, bodyColorButtonsContainer);
-                btn.gameObject.SetActive(true);
-                btn.image.color = CustomizationManager.Instance.bodyColors[i];
-                btn.onClick.AddListener(() => CustomizationManager.Instance.SetBodyColor(index));
-            }
+            BuildSwatchesFor(bodyColorButtonsContainer, CustomizationManager.Instance.bodyColors, (idx) => CustomizationManager.Instance.SetBodyColor(idx));
         }
 
-        // Head Color Swatches
         if (headColorButtonsContainer != null && headColorButtonsContainer.childCount <= 1)
         {
-            for (int i = 0; i < CustomizationManager.Instance.bodyColors.Length; i++)
-            {
-                int index = i;
-                Button btn = Instantiate(colorButtonPrefab, headColorButtonsContainer);
-                btn.gameObject.SetActive(true);
-                btn.image.color = CustomizationManager.Instance.bodyColors[i];
-                btn.onClick.AddListener(() => CustomizationManager.Instance.SetHeadColor(index));
-            }
+            BuildSwatchesFor(headColorButtonsContainer, CustomizationManager.Instance.bodyColors, (idx) => CustomizationManager.Instance.SetHeadColor(idx));
         }
 
-        // Eye Color Swatches
         if (eyeColorButtonsContainer != null && eyeColorButtonsContainer.childCount <= 1)
         {
-            for (int i = 0; i < CustomizationManager.Instance.eyeColors.Length; i++)
+            BuildSwatchesFor(eyeColorButtonsContainer, CustomizationManager.Instance.eyeColors, (idx) => CustomizationManager.Instance.SetEyeColor(idx));
+        }
+    }
+
+    private void BuildSwatchesFor(Transform container, Color[] colors, System.Action<int> onSelect)
+    {
+        for (int i = 0; i < colors.Length; i++)
+        {
+            int index = i;
+            GameObject btnObj;
+
+            if (colorButtonPrefab != null)
             {
-                int index = i;
-                Button btn = Instantiate(colorButtonPrefab, eyeColorButtonsContainer);
-                btn.gameObject.SetActive(true);
-                btn.image.color = CustomizationManager.Instance.eyeColors[i];
-                btn.onClick.AddListener(() => CustomizationManager.Instance.SetEyeColor(index));
+                btnObj = Instantiate(colorButtonPrefab.gameObject, container);
+            }
+            else
+            {
+                // Procedural button creation
+                btnObj = new GameObject($"Swatch_{index}");
+                btnObj.transform.SetParent(container, false);
+                Image img = btnObj.AddComponent<Image>();
+                Button btn = btnObj.AddComponent<Button>();
+                RectTransform rt = btnObj.GetComponent<RectTransform>();
+                rt.sizeDelta = new Vector2(40f, 40f);
+            }
+
+            btnObj.SetActive(true);
+            Image btnImage = btnObj.GetComponent<Image>();
+            if (btnImage != null) btnImage.color = colors[i];
+
+            Button buttonComp = btnObj.GetComponent<Button>();
+            if (buttonComp != null)
+            {
+                buttonComp.onClick.AddListener(() => onSelect(index));
             }
         }
     }
@@ -71,7 +90,13 @@ public class LobbyUI : MonoBehaviour
     {
         if (GameManager.Instance != null)
         {
-            GameManager.Instance.SetState(GameManager.GameState.Playing);
+            GameManager.Instance.StartGame();
         }
+        else
+        {
+            GameEvents.TriggerGameStart();
+        }
+
+        gameObject.SetActive(false);
     }
 }
