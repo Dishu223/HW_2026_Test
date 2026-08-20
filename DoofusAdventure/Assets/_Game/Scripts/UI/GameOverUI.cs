@@ -4,8 +4,8 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Handles Game Over Screen: counting-up score ticker, challenge complete banner (score >= 50),
-/// best score display, and instant restart on 'R' key.
+/// Handles Game Over Screen: counting-up score ticker, victory banner,
+/// best score display, and restart on 'R' key, Space, or screen click.
 /// </summary>
 public class GameOverUI : MonoBehaviour
 {
@@ -29,17 +29,24 @@ public class GameOverUI : MonoBehaviour
 
     private void Update()
     {
-        // Animate restart prompt
         if (restartPromptText != null)
         {
             restartPromptText.alpha = 0.4f + Mathf.PingPong(Time.unscaledTime * 2.5f, 0.6f);
         }
 
-        // Detect R key to restart or Space to return to lobby
+        // Detect R key, Space, Enter, or Mouse click to restart
         Keyboard keyboard = Keyboard.current;
-        if (keyboard != null && keyboard.rKey.wasPressedThisFrame)
+        if (keyboard != null && (keyboard.rKey.wasPressedThisFrame || keyboard.spaceKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame))
         {
             RestartGame();
+            return;
+        }
+
+        Mouse mouse = Mouse.current;
+        if (mouse != null && mouse.leftButton.wasPressedThisFrame)
+        {
+            RestartGame();
+            return;
         }
     }
 
@@ -51,15 +58,14 @@ public class GameOverUI : MonoBehaviour
         if (bestScoreText != null)
             bestScoreText.text = $"BEST: {best}";
 
-        // Show special win banner if hit 50 pulpits!
+        // Show special win banner without unsupported emojis to prevent font warnings
         if (victoryBannerText != null)
         {
             victoryBannerText.gameObject.SetActive(score >= 50);
             if (score >= 50)
-                victoryBannerText.text = "🎉 50 PULPITS REACHED! CHALLENGE COMPLETE! 🎉";
+                victoryBannerText.text = "*** 50 PULPITS REACHED! CHALLENGE COMPLETE! ***";
         }
 
-        // Start score ticker
         if (gameObject.activeInHierarchy)
         {
             if (scoreTickerRoutine != null) StopCoroutine(scoreTickerRoutine);
@@ -91,13 +97,9 @@ public class GameOverUI : MonoBehaviour
         {
             GameManager.Instance.SetState(GameManager.GameState.Playing);
         }
-    }
-
-    public void ReturnToLobby()
-    {
-        if (GameManager.Instance != null)
+        else
         {
-            GameManager.Instance.SetState(GameManager.GameState.Lobby);
+            GameEvents.TriggerGameStart();
         }
     }
 }
