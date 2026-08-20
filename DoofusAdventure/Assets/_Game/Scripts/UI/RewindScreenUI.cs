@@ -4,8 +4,9 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Controls the Prince of Persia Time Rewind & Resume overlay:
-/// - "⏪ REWINDING TIME" during reverse flight
-/// - "► PRESS WASD OR SPACE TO RESUME ◄" when safely landed
+/// - Solid, static, non-flashing typography
+/// - Soft ambient static vignette
+/// - Uses 100% universal ASCII / Standard Unicode symbols (no emoji missing glyph boxes)
 /// </summary>
 [RequireComponent(typeof(CanvasGroup))]
 public class RewindScreenUI : MonoBehaviour
@@ -16,8 +17,7 @@ public class RewindScreenUI : MonoBehaviour
 
     private CanvasGroup canvasGroup;
     private bool isOverlayActive = false;
-    private bool isReadyToResume = false;
-    private float fadeSpeed = 5f;
+    private float fadeSpeed = 6f;
 
     private void Awake()
     {
@@ -48,33 +48,31 @@ public class RewindScreenUI : MonoBehaviour
     private void HandleRewindStart()
     {
         isOverlayActive = true;
-        isReadyToResume = false;
         if (rewindBannerText != null)
         {
-            rewindBannerText.text = "⏪ REWINDING TIME ⏪";
+            rewindBannerText.text = "<< TIME REWIND <<";
+            rewindBannerText.color = new Color(0f, 0.9f, 1f, 1f); // Bright solid Cyan
         }
     }
 
     private void HandleReadyToResume()
     {
         isOverlayActive = true;
-        isReadyToResume = true;
         if (rewindBannerText != null)
         {
-            rewindBannerText.text = "► PRESS WASD OR SPACE TO RESUME ◄";
+            rewindBannerText.text = ">> PRESS WASD OR SPACE TO RESUME <<";
+            rewindBannerText.color = Color.white; // Solid crisp White
         }
     }
 
     private void HandleRewindComplete()
     {
         isOverlayActive = false;
-        isReadyToResume = false;
     }
 
     public void HideImmediate()
     {
         isOverlayActive = false;
-        isReadyToResume = false;
         if (canvasGroup != null)
         {
             canvasGroup.alpha = 0f;
@@ -86,32 +84,15 @@ public class RewindScreenUI : MonoBehaviour
     {
         if (canvasGroup == null) return;
 
+        // Smooth fade without any flashing
         float targetAlpha = isOverlayActive ? 1f : 0f;
         canvasGroup.alpha = Mathf.MoveTowards(canvasGroup.alpha, targetAlpha, Time.unscaledDeltaTime * fadeSpeed);
         canvasGroup.blocksRaycasts = false;
 
-        if (canvasGroup.alpha > 0.01f)
+        if (vignetteOverlayImage != null)
         {
-            if (vignetteOverlayImage != null)
-            {
-                float breathe = isReadyToResume 
-                    ? 0.40f + Mathf.PingPong(Time.unscaledTime * 3f, 0.15f)
-                    : 0.35f + Mathf.Sin(Time.unscaledTime * 2f) * 0.08f;
-                vignetteOverlayImage.color = new Color(0f, 0.75f, 0.95f, breathe);
-            }
-
-            if (rewindBannerText != null)
-            {
-                if (isReadyToResume)
-                {
-                    float pulse = 0.5f + Mathf.PingPong(Time.unscaledTime * 3f, 0.5f);
-                    rewindBannerText.alpha = pulse;
-                }
-                else
-                {
-                    rewindBannerText.alpha = 0.9f;
-                }
-            }
+            // Static, gentle, solid ambient tint (zero flashing/strobing)
+            vignetteOverlayImage.color = new Color(0f, 0.70f, 0.90f, 0.28f);
         }
     }
 }

@@ -5,11 +5,10 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// Prince of Persia Cinematic Time Rewind Engine:
-/// 1. Slow-Mo Fall Dilation (0.12x).
-/// 2. Reverse Acceleration (0.35x -> 3.2x).
-/// 3. Platform Touchdown & Interactive Resume Pause:
-///    The game pauses safely on the platform, allowing the player to catch their breath
-///    and press WASD / Space / Click to resume when ready!
+/// - 0.12x slow-motion fall dilation
+/// - Dynamic time-ramp reversal
+/// - Clean kinematic transitions with zero Unity 6 warnings
+/// - Interactive pause on platform with manual player resume
 /// </summary>
 public class RewindManager : MonoBehaviour
 {
@@ -151,7 +150,7 @@ public class RewindManager : MonoBehaviour
         isWaitingForResume = false;
         GameEvents.TriggerRewindStart();
 
-        // 1. Phase 1: Slow-Motion Fall Dilation
+        // 1. Slow-Motion Fall Dilation
         Time.timeScale = 0.12f;
         float slowMoRealDuration = 0.50f;
         float elapsed = 0f;
@@ -163,13 +162,16 @@ public class RewindManager : MonoBehaviour
         }
 
         Time.timeScale = 1.0f;
+
+        // Safely zero velocity before setting kinematic to eliminate Unity 6 warnings
         if (playerRigidbody != null)
         {
-            playerRigidbody.isKinematic = true;
             playerRigidbody.linearVelocity = Vector3.zero;
+            playerRigidbody.angularVelocity = Vector3.zero;
+            playerRigidbody.isKinematic = true;
         }
 
-        // 2. Phase 2: Dynamic Reverse Acceleration
+        // 2. Reverse Dynamic Acceleration Playback
         int initialCount = snapshotBuffer.Count;
 
         while (snapshotBuffer.Count > 0)
@@ -208,7 +210,7 @@ public class RewindManager : MonoBehaviour
             yield return new WaitForSecondsRealtime(Time.fixedDeltaTime / Mathf.Max(0.4f, currentSpeed));
         }
 
-        // 3. Phase 3: Pause Safely on Platform & Wait for Player Input
+        // 3. Pause Safely on Platform & Wait for Player Input
         if (playerRigidbody != null)
         {
             playerRigidbody.isKinematic = false;
@@ -216,13 +218,11 @@ public class RewindManager : MonoBehaviour
             playerRigidbody.angularVelocity = Vector3.zero;
         }
 
-        // Freeze time and prompt player
         Time.timeScale = 0f;
         isWaitingForResume = true;
         GameEvents.TriggerRewindReadyToResume();
 
-        // Wait for player to press WASD, Arrows, Space, or Click to resume!
-        yield return new WaitForSecondsRealtime(0.15f); // Brief debounce
+        yield return new WaitForSecondsRealtime(0.15f);
 
         while (isWaitingForResume)
         {
@@ -245,7 +245,7 @@ public class RewindManager : MonoBehaviour
             yield return null;
         }
 
-        // 4. Resume Gameplay Smoothly!
+        // 4. Resume Gameplay Smoothly
         Time.timeScale = 1.0f;
         isRewinding = false;
         GameEvents.TriggerRewindComplete();

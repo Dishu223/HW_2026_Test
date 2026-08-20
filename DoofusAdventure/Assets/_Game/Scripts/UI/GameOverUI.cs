@@ -4,9 +4,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Self-contained Game Over screen:
-/// - Fades in cleanly when GameOver occurs
-/// - Protects against accidental immediate restart from held space/mouse keys
+/// Self-contained Game Over screen using universal typography.
 /// </summary>
 [RequireComponent(typeof(CanvasGroup))]
 public class GameOverUI : MonoBehaviour
@@ -65,6 +63,11 @@ public class GameOverUI : MonoBehaviour
             canvasGroup.blocksRaycasts = true;
         }
 
+        if (restartPromptText != null)
+        {
+            restartPromptText.text = ">> PRESS R TO RETRY <<";
+        }
+
         DisplayGameOverResults();
     }
 
@@ -85,14 +88,13 @@ public class GameOverUI : MonoBehaviour
         if (!isGameOverActive) return;
 
         timer += Time.unscaledDeltaTime;
-        if (timer < activationCooldown) return; // Strict cooldown so held keys don't restart immediately!
+        if (timer < activationCooldown) return;
 
         if (restartPromptText != null)
         {
-            restartPromptText.alpha = 0.4f + Mathf.PingPong(Time.unscaledTime * 2.5f, 0.6f);
+            restartPromptText.alpha = 0.5f + Mathf.PingPong(Time.unscaledTime * 2f, 0.5f);
         }
 
-        // Restart only when key was pressed THIS frame after cooldown
         bool rPressed = Keyboard.current != null && (Keyboard.current.rKey.wasPressedThisFrame || Keyboard.current.spaceKey.wasPressedThisFrame || Keyboard.current.enterKey.wasPressedThisFrame);
         bool mouseClicked = Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
 

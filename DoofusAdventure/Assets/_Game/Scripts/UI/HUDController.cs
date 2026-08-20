@@ -6,7 +6,7 @@ using UnityEngine.UI;
 /// <summary>
 /// Controls in-game HUD displays:
 /// - Score counter and Best Score
-/// - Sand of Time Rewind Charges (⏳ ⏳ ⏳)
+/// - Sand of Time Rewind Charges using universal geometric symbols (◆ ◆ ◆)
 /// </summary>
 [RequireComponent(typeof(CanvasGroup))]
 public class HUDController : MonoBehaviour
@@ -88,6 +88,9 @@ public class HUDController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Uses universal geometric symbols (◆ / ◇) supported by all Unity fonts!
+    /// </summary>
     private void UpdateChargesDisplay(int current, int max)
     {
         if (rewindChargesText == null) return;
@@ -96,12 +99,12 @@ public class HUDController : MonoBehaviour
         for (int i = 0; i < max; i++)
         {
             if (i < current)
-                chargesDisplay += "<color=#00E5FF>⏳</color> "; // Glowing cyan hourglass
+                chargesDisplay += "<color=#00E5FF>◆</color> "; // Glowing Cyan Diamond
             else
-                chargesDisplay += "<color=#555555>⌛</color> "; // Spent dark hourglass
+                chargesDisplay += "<color=#666666>◇</color> "; // Empty Outlined Diamond
         }
 
-        rewindChargesText.text = $"TIME SAND: {chargesDisplay.Trim()}";
+        rewindChargesText.text = $"REWIND: {chargesDisplay.Trim()}";
     }
 
     private IEnumerator PunchScale(Transform target, float punchScale, float duration)

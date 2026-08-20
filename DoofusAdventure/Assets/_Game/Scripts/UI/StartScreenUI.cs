@@ -3,10 +3,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Simple, self-contained Start Screen controller:
-/// - Freezes game time on Awake (Time.timeScale = 0)
-/// - Floats title and pulses prompt using unscaledTime
-/// - When player presses Space or clicks, launches game, unpauses (Time.timeScale = 1), and hides itself
+/// Simple, self-contained Start Screen controller using universal standard font symbols.
 /// </summary>
 public class StartScreenUI : MonoBehaviour
 {
@@ -25,7 +22,15 @@ public class StartScreenUI : MonoBehaviour
     {
         Time.timeScale = 0f;
         if (titleText != null)
+        {
             initialTitleY = titleText.rectTransform.anchoredPosition.y;
+            titleText.text = "DOOFUS ADVENTURE";
+        }
+
+        if (pressSpacePrompt != null)
+        {
+            pressSpacePrompt.text = ">> PRESS SPACE TO START <<";
+        }
     }
 
     private void Update()
@@ -38,7 +43,7 @@ public class StartScreenUI : MonoBehaviour
 
         if (pressSpacePrompt != null)
         {
-            float alpha = 0.4f + Mathf.PingPong(Time.unscaledTime * 2.5f, 0.6f);
+            float alpha = 0.5f + Mathf.PingPong(Time.unscaledTime * 2f, 0.5f);
             pressSpacePrompt.alpha = alpha;
         }
 
