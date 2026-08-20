@@ -4,8 +4,9 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Controls in-game HUD displays (Score counter & High score).
-/// Uses CanvasGroup visibility so event listeners are always active.
+/// Controls in-game HUD displays:
+/// - Score counter and Best Score
+/// - Sand of Time Rewind Charges (⏳ ⏳ ⏳)
 /// </summary>
 [RequireComponent(typeof(CanvasGroup))]
 public class HUDController : MonoBehaviour
@@ -13,6 +14,9 @@ public class HUDController : MonoBehaviour
     [Header("Score Display")]
     [SerializeField] private TextMeshProUGUI scoreText;
     [SerializeField] private TextMeshProUGUI highScoreText;
+
+    [Header("Rewind Charges Display")]
+    [SerializeField] private TextMeshProUGUI rewindChargesText;
 
     private CanvasGroup canvasGroup;
     private Coroutine scorePunchRoutine;
@@ -31,6 +35,7 @@ public class HUDController : MonoBehaviour
         GameEvents.OnGameOver += HideHUD;
         GameEvents.OnReturnToLobby += HideHUD;
         GameEvents.OnScoreChanged += UpdateScoreDisplay;
+        GameEvents.OnRewindChargesChanged += UpdateChargesDisplay;
     }
 
     private void OnDisable()
@@ -39,6 +44,7 @@ public class HUDController : MonoBehaviour
         GameEvents.OnGameOver -= HideHUD;
         GameEvents.OnReturnToLobby -= HideHUD;
         GameEvents.OnScoreChanged -= UpdateScoreDisplay;
+        GameEvents.OnRewindChargesChanged -= UpdateChargesDisplay;
     }
 
     public void ShowHUD()
@@ -50,6 +56,7 @@ public class HUDController : MonoBehaviour
             canvasGroup.blocksRaycasts = true;
         }
         UpdateScoreDisplay(0);
+        UpdateChargesDisplay(3, 3);
     }
 
     public void HideHUD()
@@ -79,6 +86,22 @@ public class HUDController : MonoBehaviour
         {
             highScoreText.text = $"BEST: {ScoreManager.Instance.HighScore}";
         }
+    }
+
+    private void UpdateChargesDisplay(int current, int max)
+    {
+        if (rewindChargesText == null) return;
+
+        string chargesDisplay = "";
+        for (int i = 0; i < max; i++)
+        {
+            if (i < current)
+                chargesDisplay += "<color=#00E5FF>⏳</color> "; // Glowing cyan hourglass
+            else
+                chargesDisplay += "<color=#555555>⌛</color> "; // Spent dark hourglass
+        }
+
+        rewindChargesText.text = $"TIME SAND: {chargesDisplay.Trim()}";
     }
 
     private IEnumerator PunchScale(Transform target, float punchScale, float duration)
