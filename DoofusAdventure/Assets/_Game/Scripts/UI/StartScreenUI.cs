@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -107,7 +107,7 @@ public class StartScreenUI : MonoBehaviour
         CreateTextLabel(customPanelObj.transform, "🎨 CUSTOMIZE DOOFUS", 20f, FontStyles.Bold, new Color(0f, 0.9f, 1f));
 
         // 1. Body Color Palette
-        CreateTextLabel(customPanelObj.transform, "BODY COLOR", 13f, FontStyles.SemiBold, new Color(0.8f, 0.85f, 0.9f));
+        CreateTextLabel(customPanelObj.transform, "BODY COLOR", 13f, FontStyles.Bold, new Color(0.8f, 0.85f, 0.9f));
         Transform bodyRow = CreateRowContainer(customPanelObj.transform);
         for (int i = 0; i < CustomizationManager.Instance.bodyColors.Length; i++)
         {
@@ -119,7 +119,7 @@ public class StartScreenUI : MonoBehaviour
         }
 
         // 2. Head Color Palette
-        CreateTextLabel(customPanelObj.transform, "HEAD COLOR", 13f, FontStyles.SemiBold, new Color(0.8f, 0.85f, 0.9f));
+        CreateTextLabel(customPanelObj.transform, "HEAD COLOR", 13f, FontStyles.Bold, new Color(0.8f, 0.85f, 0.9f));
         Transform headRow = CreateRowContainer(customPanelObj.transform);
         for (int i = 0; i < CustomizationManager.Instance.bodyColors.Length; i++)
         {
@@ -131,7 +131,7 @@ public class StartScreenUI : MonoBehaviour
         }
 
         // 3. Eye Color Palette
-        CreateTextLabel(customPanelObj.transform, "EYE COLOR", 13f, FontStyles.SemiBold, new Color(0.8f, 0.85f, 0.9f));
+        CreateTextLabel(customPanelObj.transform, "EYE COLOR", 13f, FontStyles.Bold, new Color(0.8f, 0.85f, 0.9f));
         Transform eyeRow = CreateRowContainer(customPanelObj.transform);
         for (int i = 0; i < CustomizationManager.Instance.eyeColors.Length; i++)
         {
