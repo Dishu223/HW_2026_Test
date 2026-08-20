@@ -1,6 +1,5 @@
 ﻿using System.Collections;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 /// <summary>
 /// Master UI Router managing panel switching (Start Screen, Lobby, HUD, Game Over)
@@ -17,7 +16,7 @@ public class UIManager : MonoBehaviour
     [SerializeField] private CanvasGroup gameOverPanel;
 
     [Header("Transition Settings")]
-    [SerializeField] private float fadeDuration = 0.25f;
+    [SerializeField] private float fadeDuration = 0.2f;
 
     private CanvasGroup activePanel;
     private Coroutine transitionRoutine;
@@ -35,15 +34,8 @@ public class UIManager : MonoBehaviour
 
     private void Start()
     {
-        // Check game state to display initial panel
-        if (GameManager.Instance != null && GameManager.Instance.CurrentState == GameManager.GameState.StartScreen)
-        {
-            ShowPanelImmediate(startScreenPanel);
-        }
-        else
-        {
-            ShowPanelImmediate(hudPanel);
-        }
+        // Always guarantee Start Screen is active on boot
+        ShowPanelImmediate(startScreenPanel);
     }
 
     private void OnEnable()
@@ -62,13 +54,13 @@ public class UIManager : MonoBehaviour
 
     public void SwitchToPanel(CanvasGroup targetPanel)
     {
+        if (targetPanel == null) return;
         if (transitionRoutine != null) StopCoroutine(transitionRoutine);
         transitionRoutine = StartCoroutine(TransitionPanelsCoroutine(targetPanel));
     }
 
     private IEnumerator TransitionPanelsCoroutine(CanvasGroup targetPanel)
     {
-        // Fade out current panel
         if (activePanel != null && activePanel != targetPanel)
         {
             float elapsed = 0f;
@@ -81,7 +73,6 @@ public class UIManager : MonoBehaviour
             SetPanelState(activePanel, false);
         }
 
-        // Fade in target panel
         if (targetPanel != null)
         {
             SetPanelState(targetPanel, true);
@@ -100,14 +91,14 @@ public class UIManager : MonoBehaviour
 
     public void ShowPanelImmediate(CanvasGroup panel)
     {
-        SetPanelState(startScreenPanel, panel == startScreenPanel);
-        SetPanelState(lobbyPanel, panel == lobbyPanel);
-        SetPanelState(hudPanel, panel == hudPanel);
-        SetPanelState(gameOverPanel, panel == gameOverPanel);
+        SetPanelState(startScreenPanel, false);
+        SetPanelState(lobbyPanel, false);
+        SetPanelState(hudPanel, false);
+        SetPanelState(gameOverPanel, false);
 
         if (panel != null)
         {
-            panel.alpha = 1f;
+            SetPanelState(panel, true);
             activePanel = panel;
         }
     }
@@ -122,9 +113,7 @@ public class UIManager : MonoBehaviour
 
     #region Event Handlers
     private void HandleGameStart() => SwitchToPanel(hudPanel);
-
     private void HandleGameOver() => SwitchToPanel(gameOverPanel);
-
     private void HandleReturnToLobby() => SwitchToPanel(lobbyPanel);
     #endregion
 }

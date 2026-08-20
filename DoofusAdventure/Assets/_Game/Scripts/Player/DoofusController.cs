@@ -13,7 +13,7 @@ public class DoofusController : MonoBehaviour
 
     private Rigidbody rb;
     private Vector3 moveInput;
-    private bool isInputActive = false; // Disabled until game starts!
+    private bool isInputActive = false;
     private bool hasFallen = false;
 
     public Vector3 MoveInput => moveInput;
@@ -24,6 +24,15 @@ public class DoofusController : MonoBehaviour
         rb = GetComponent<Rigidbody>();
         rb.freezeRotation = true;
         rb.useGravity = true;
+    }
+
+    private void Start()
+    {
+        // Sync input state on start
+        if (GameManager.Instance != null)
+        {
+            isInputActive = GameManager.Instance.IsPlaying;
+        }
     }
 
     private void OnEnable()
@@ -95,7 +104,6 @@ public class DoofusController : MonoBehaviour
         isInputActive = true;
         hasFallen = false;
 
-        // Reset Doofus back to center platform
         if (rb != null)
         {
             rb.linearVelocity = Vector3.zero;
