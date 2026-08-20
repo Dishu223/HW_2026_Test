@@ -1,8 +1,10 @@
-﻿using TMPro;
+﻿using System.Collections;
+using TMPro;
 using UnityEngine;
 
 /// <summary>
 /// Controls an individual pulpit platform:
+/// - Subtle flash of light when Doofus enters
 /// - 3D Shatter Explosion when reaching 0.00s
 /// - Reverse reassembly during Time Rewind
 /// - Deterministic WorldTime binding
@@ -29,6 +31,9 @@ public class Pulpit : MonoBehaviour
     private Material runtimeMaterial;
     private bool isInitialized = false;
     private int platformSequenceIndex = 0;
+
+    private Coroutine flashRoutine;
+    private float entryFlashIntensity = 0f;
 
     public bool IsDestroyed => isDestroyed;
     public float RemainingTime => remainingTime;
@@ -76,6 +81,7 @@ public class Pulpit : MonoBehaviour
         remainingTime = lifetime;
         isDestroyed = false;
         hasPlayerVisited = false;
+        entryFlashIntensity = 0f;
 
         if (shatterFX != null) shatterFX.ResetDebris();
 
@@ -121,7 +127,6 @@ public class Pulpit : MonoBehaviour
         isDestroyed = true;
         SetPlatformVisibility(false);
 
-        // Trigger 3D physics shatter explosion!
         if (shatterFX != null)
         {
             Color currentColor = runtimeMaterial != null ? runtimeMaterial.color : criticalColor;
@@ -149,28 +154,33 @@ public class Pulpit : MonoBehaviour
     {
         if (runtimeMaterial == null) return;
 
-        Color targetColor;
+        Color baseColor;
         if (normalizedTime > 0.5f)
         {
             float t = (1f - normalizedTime) * 2f;
-            targetColor = Color.Lerp(normalColor, warningColor, t);
+            baseColor = Color.Lerp(normalColor, warningColor, t);
         }
         else
         {
             float t = (0.5f - normalizedTime) * 2f;
-            targetColor = Color.Lerp(warningColor, criticalColor, t);
+            baseColor = Color.Lerp(warningColor, criticalColor, t);
         }
+
+        // Apply subtle entry flash highlight
+        Color finalColor = (entryFlashIntensity > 0.01f) 
+            ? Color.Lerp(baseColor, Color.white, entryFlashIntensity) 
+            : baseColor;
 
         try
         {
             if (runtimeMaterial.HasProperty("_BaseColor"))
-                runtimeMaterial.SetColor("_BaseColor", targetColor);
+                runtimeMaterial.SetColor("_BaseColor", finalColor);
             else
-                runtimeMaterial.color = targetColor;
+                runtimeMaterial.color = finalColor;
         }
         catch
         {
-            runtimeMaterial.color = targetColor;
+            runtimeMaterial.color = finalColor;
         }
     }
 
@@ -201,7 +211,27 @@ public class Pulpit : MonoBehaviour
         {
             hasPlayerVisited = true;
             GameEvents.TriggerPulpitLanded();
+
+            // Trigger juicy tile light flash!
+            if (flashRoutine != null) StopCoroutine(flashRoutine);
+            flashRoutine = StartCoroutine(TileFlashCoroutine());
         }
+    }
+
+    private IEnumerator TileFlashCoroutine()
+    {
+        entryFlashIntensity = 0.70f; // Bright flash
+        float duration = 0.22f;
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            entryFlashIntensity = Mathf.Lerp(0.70f, 0f, elapsed / duration);
+            yield return null;
+        }
+
+        entryFlashIntensity = 0f;
     }
 
     private void OnDestroy()

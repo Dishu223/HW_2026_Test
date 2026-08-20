@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -6,7 +7,8 @@ using UnityEngine;
 /// - Smooth acceleration lean and head drag
 /// - Continuous rhythmic back-and-forth head bobbing while running
 /// - Exaggerated stopping brake & forward whip
-/// - High-visibility cartoon eyes: crisp eyelid-slit blinks, wide running eyes, and stop-blinks!
+/// - High-visibility cartoon eyes
+/// - Blinking warning flashes on Rewind and Game Over!
 /// </summary>
 public class DoofusAnimator : MonoBehaviour
 {
@@ -52,8 +54,11 @@ public class DoofusAnimator : MonoBehaviour
     private bool isBlinking = false;
     private Coroutine blinkRoutine;
     private Coroutine squashRoutine;
+    private Coroutine characterFlashRoutine;
     private bool isFalling = false;
     private float currentPulpitTimer = 1f;
+
+    private readonly List<Renderer> characterRenderers = new List<Renderer>();
 
     private void Awake()
     {
@@ -75,6 +80,9 @@ public class DoofusAnimator : MonoBehaviour
             defaultEyeScale = new Vector3(0.16f, 0.16f, 0.16f);
 
         nextBlinkTime = Random.Range(2.0f, 3.5f);
+
+        // Cache all child renderers for character blink flashes
+        characterRenderers.AddRange(GetComponentsInChildren<Renderer>());
     }
 
     private void OnEnable()
@@ -83,6 +91,8 @@ public class DoofusAnimator : MonoBehaviour
         GameEvents.OnPulpitTimerTick += HandleTimerTickForEyes;
         GameEvents.OnDoofusFell += HandleDoofusFell;
         GameEvents.OnGameStart += HandleGameStart;
+        GameEvents.OnRewindStart += HandleRewindStart;
+        GameEvents.OnGameOver += HandleGameOver;
     }
 
     private void OnDisable()
@@ -91,6 +101,8 @@ public class DoofusAnimator : MonoBehaviour
         GameEvents.OnPulpitTimerTick -= HandleTimerTickForEyes;
         GameEvents.OnDoofusFell -= HandleDoofusFell;
         GameEvents.OnGameStart -= HandleGameStart;
+        GameEvents.OnRewindStart -= HandleRewindStart;
+        GameEvents.OnGameOver -= HandleGameOver;
     }
 
     private void Update()
@@ -315,6 +327,46 @@ public class DoofusAnimator : MonoBehaviour
         transform.localScale = originalScale;
     }
 
+    #region Character Blinking Flashes
+    private void TriggerCharacterBlinkFlashes(int flashCount = 4, float interval = 0.08f)
+    {
+        if (!gameObject.activeInHierarchy) return;
+
+        if (characterFlashRoutine != null) StopCoroutine(characterFlashRoutine);
+        characterFlashRoutine = StartCoroutine(CharacterFlashCoroutine(flashCount, interval));
+    }
+
+    private IEnumerator CharacterFlashCoroutine(int flashCount, float interval)
+    {
+        for (int i = 0; i < flashCount; i++)
+        {
+            SetRenderersVisibility(false);
+            yield return new WaitForSecondsRealtime(interval);
+            SetRenderersVisibility(true);
+            yield return new WaitForSecondsRealtime(interval);
+        }
+        SetRenderersVisibility(true);
+    }
+
+    private void SetRenderersVisibility(bool visible)
+    {
+        foreach (Renderer r in characterRenderers)
+        {
+            if (r != null) r.enabled = visible;
+        }
+    }
+    #endregion
+
+    private void HandleRewindStart()
+    {
+        TriggerCharacterBlinkFlashes(4, 0.07f);
+    }
+
+    private void HandleGameOver()
+    {
+        TriggerCharacterBlinkFlashes(5, 0.08f);
+    }
+
     private void HandleTimerTickForEyes(float normalizedTime)
     {
         currentPulpitTimer = normalizedTime;
@@ -338,6 +390,7 @@ public class DoofusAnimator : MonoBehaviour
         isFalling = false;
         transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
         transform.localScale = Vector3.one;
+        SetRenderersVisibility(true);
 
         if (leftEyeTransform != null) leftEyeTransform.localScale = defaultEyeScale;
         if (rightEyeTransform != null) rightEyeTransform.localScale = defaultEyeScale;

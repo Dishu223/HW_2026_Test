@@ -2,13 +2,13 @@
 
 /// <summary>
 /// Spawns locomotion visual juice for Doofus:
-/// - Running footstep dust puffs timed with stride
+/// - Raycasts to the top surface of platforms so footstep dust NEVER clips below tiles!
 /// - Skid brake dust clouds when stopping or reversing quickly
 /// </summary>
 public class DoofusLocomotionVFX : MonoBehaviour
 {
     [Header("Locomotion Tuning")]
-    [SerializeField] private float stepInterval = 0.22f;
+    [SerializeField] private float stepInterval = 0.20f;
 
     private DoofusController controller;
     private Rigidbody rb;
@@ -35,7 +35,6 @@ public class DoofusLocomotionVFX : MonoBehaviour
         // 1. Footstep dust puffs
         GameObject footObj = new GameObject("FootstepDust_PS");
         footObj.transform.SetParent(transform, false);
-        footObj.transform.localPosition = new Vector3(0f, -0.45f, 0f);
 
         footstepDustPS = footObj.AddComponent<ParticleSystem>();
         var footRenderer = footObj.GetComponent<ParticleSystemRenderer>();
@@ -44,11 +43,11 @@ public class DoofusLocomotionVFX : MonoBehaviour
         var main = footstepDustPS.main;
         main.playOnAwake = false;
         main.loop = false;
-        main.maxParticles = 25;
-        main.startLifetime = 0.25f;
-        main.startSize = 0.22f;
-        main.startSpeed = 0.6f;
-        main.startColor = new Color(1f, 1f, 1f, 0.45f);
+        main.maxParticles = 30;
+        main.startLifetime = 0.28f;
+        main.startSize = 0.24f;
+        main.startSpeed = 0.8f;
+        main.startColor = new Color(1f, 1f, 1f, 0.55f);
         main.simulationSpace = ParticleSystemSimulationSpace.World;
 
         var emission = footstepDustPS.emission;
@@ -64,7 +63,6 @@ public class DoofusLocomotionVFX : MonoBehaviour
         // 2. Skid brake dust
         GameObject skidObj = new GameObject("SkidDust_PS");
         skidObj.transform.SetParent(transform, false);
-        skidObj.transform.localPosition = new Vector3(0f, -0.45f, 0f);
 
         skidDustPS = skidObj.AddComponent<ParticleSystem>();
         var skidRenderer = skidObj.GetComponent<ParticleSystemRenderer>();
@@ -73,11 +71,11 @@ public class DoofusLocomotionVFX : MonoBehaviour
         var skidMain = skidDustPS.main;
         skidMain.playOnAwake = false;
         skidMain.loop = false;
-        skidMain.maxParticles = 30;
+        skidMain.maxParticles = 35;
         skidMain.startLifetime = 0.35f;
-        skidMain.startSize = 0.32f;
-        skidMain.startSpeed = 1.2f;
-        skidMain.startColor = new Color(1f, 1f, 1f, 0.6f);
+        skidMain.startSize = 0.35f;
+        skidMain.startSpeed = 1.4f;
+        skidMain.startColor = new Color(1f, 1f, 1f, 0.65f);
         skidMain.simulationSpace = ParticleSystemSimulationSpace.World;
 
         var skidEmission = skidDustPS.emission;
@@ -107,7 +105,7 @@ public class DoofusLocomotionVFX : MonoBehaviour
         }
         else
         {
-            stepTimer = stepInterval; // Instant puff on next movement start
+            stepTimer = stepInterval;
         }
 
         // Detect abrupt stopping / braking
@@ -120,12 +118,22 @@ public class DoofusLocomotionVFX : MonoBehaviour
         lastVelocity = currentVel;
     }
 
+    private Vector3 GetSurfaceContactPoint()
+    {
+        // Raycast down from above the character to find exact surface height
+        if (Physics.Raycast(transform.position + Vector3.up * 0.5f, Vector3.down, out RaycastHit hit, 2.5f))
+        {
+            return hit.point + Vector3.up * 0.05f; // Raised 5cm above surface to guarantee zero clipping
+        }
+        return transform.position + new Vector3(0f, 0.05f, 0f);
+    }
+
     private void EmitFootstepDust()
     {
         if (footstepDustPS != null)
         {
-            footstepDustPS.transform.position = transform.position + new Vector3(0f, -0.45f, 0f);
-            footstepDustPS.Emit(3);
+            footstepDustPS.transform.position = GetSurfaceContactPoint();
+            footstepDustPS.Emit(4);
         }
     }
 
@@ -133,8 +141,8 @@ public class DoofusLocomotionVFX : MonoBehaviour
     {
         if (skidDustPS != null)
         {
-            skidDustPS.transform.position = transform.position + new Vector3(0f, -0.45f, 0f);
-            skidDustPS.Emit(10);
+            skidDustPS.transform.position = GetSurfaceContactPoint();
+            skidDustPS.Emit(12);
         }
     }
 }
