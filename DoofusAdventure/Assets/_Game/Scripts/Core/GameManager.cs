@@ -3,6 +3,7 @@
 /// <summary>
 /// Controls overall game lifecycle states:
 /// StartScreen (paused) -> Playing (unpaused) -> GameOver.
+/// Ensures resuming from Rewind continues active run without resetting world state.
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -78,7 +79,7 @@ public class GameManager : MonoBehaviour
         switch (currentState)
         {
             case GameState.StartScreen:
-                Time.timeScale = 0f; // Freeze game when on Start Screen!
+                Time.timeScale = 0f;
                 break;
 
             case GameState.Lobby:
@@ -87,11 +88,11 @@ public class GameManager : MonoBehaviour
                 break;
 
             case GameState.Playing:
-                Time.timeScale = 1f; // Unpause for active gameplay!
-                GameEvents.TriggerGameStart();
+                Time.timeScale = 1f;
                 break;
 
             case GameState.Rewinding:
+                Time.timeScale = 1f;
                 break;
 
             case GameState.GameOver:
@@ -104,11 +105,13 @@ public class GameManager : MonoBehaviour
     public void StartGame()
     {
         SetState(GameState.Playing);
+        GameEvents.TriggerGameStart(); // Only trigger fresh start on user play/restart!
     }
 
     public void RestartGame()
     {
         SetState(GameState.Playing);
+        GameEvents.TriggerGameStart();
     }
 
     private void HandleDoofusFell()
@@ -116,6 +119,15 @@ public class GameManager : MonoBehaviour
         SetState(GameState.GameOver);
     }
 
-    private void HandleRewindStart() => SetState(GameState.Rewinding);
-    private void HandleRewindComplete() => SetState(GameState.Playing);
+    private void HandleRewindStart()
+    {
+        SetState(GameState.Rewinding);
+    }
+
+    private void HandleRewindComplete()
+    {
+        // Resume active gameplay state WITHOUT restarting the game or resetting platforms/score!
+        currentState = GameState.Playing;
+        Time.timeScale = 1f;
+    }
 }

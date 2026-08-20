@@ -18,7 +18,7 @@ public class StartScreenUI : MonoBehaviour
 
     private void Awake()
     {
-        Time.timeScale = 0f; // Freeze game when Start Screen is alive!
+        Time.timeScale = 0f;
     }
 
     private void Start()
@@ -30,21 +30,18 @@ public class StartScreenUI : MonoBehaviour
 
     private void Update()
     {
-        // Gentle title float (runs on unscaledTime so it animates while paused)
         if (titleText != null)
         {
             float newY = initialTitleY + Mathf.Sin(Time.unscaledTime * 3f) * 10f;
             titleText.rectTransform.anchoredPosition = new Vector2(titleText.rectTransform.anchoredPosition.x, newY);
         }
 
-        // Pulse prompt
         if (pressSpacePrompt != null)
         {
             float alpha = 0.4f + Mathf.PingPong(Time.unscaledTime * 2.5f, 0.6f);
             pressSpacePrompt.alpha = alpha;
         }
 
-        // Check Space, Enter, or Click
         bool spacePressed = Keyboard.current != null && (Keyboard.current.spaceKey.wasPressedThisFrame || Keyboard.current.enterKey.wasPressedThisFrame);
         bool mouseClicked = Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
 
@@ -58,19 +55,17 @@ public class StartScreenUI : MonoBehaviour
     {
         Debug.Log("[StartScreenUI] Launching Game!");
 
-        // Unpause game
         Time.timeScale = 1f;
 
         if (GameManager.Instance != null)
         {
-            GameManager.Instance.SetState(GameManager.GameState.Playing);
+            GameManager.Instance.StartGame();
         }
         else
         {
             GameEvents.TriggerGameStart();
         }
 
-        // Hide start screen
         gameObject.SetActive(false);
     }
 }
