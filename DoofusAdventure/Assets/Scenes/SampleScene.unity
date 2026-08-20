@@ -383,9 +383,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CameraController
   target: {fileID: 253212686}
   defaultOffset: {x: 0, y: 11, z: -13}
-  smoothSpeed: 8
+  positionSmoothTime: 0.25
   rewindZoomFactor: 0.75
-  zoomSpeed: 6
+  zoomSmoothTime: 0.4
   shakeDamping: 10
 --- !u!1 &337086534
 GameObject:
@@ -1511,7 +1511,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RewindManager
   maxRecordSeconds: 3.5
-  rewindPlaybackSpeed: 2.2
   maxCharges: 3
   playerTransform: {fileID: 0}
   playerRigidbody: {fileID: 0}
@@ -1678,7 +1677,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "TIME SAND: \u23F3 \u23F3 \u23F3"
+  m_text: "TIME SAND: \u25C6 \u25C6 \u25C6"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}

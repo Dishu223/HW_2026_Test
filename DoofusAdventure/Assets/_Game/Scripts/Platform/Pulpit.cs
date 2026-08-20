@@ -2,7 +2,10 @@
 using UnityEngine;
 
 /// <summary>
-/// Controls an individual pulpit platform with sequence index tracking.
+/// Controls an individual pulpit platform:
+/// - 3D Shatter Explosion when reaching 0.00s
+/// - Reverse reassembly during Time Rewind
+/// - Deterministic WorldTime binding
 /// </summary>
 public class Pulpit : MonoBehaviour
 {
@@ -16,6 +19,7 @@ public class Pulpit : MonoBehaviour
     [Header("On-Tile Timer Text")]
     [SerializeField] private TextMeshPro timerText;
 
+    private PlatformShatterFX shatterFX;
     private float lifetime = 5f;
     private float spawnWorldTime = 0f;
     private float destroyWorldTime = 5f;
@@ -44,6 +48,10 @@ public class Pulpit : MonoBehaviour
 
         if (timerText == null)
             timerText = GetComponentInChildren<TextMeshPro>();
+
+        shatterFX = GetComponent<PlatformShatterFX>();
+        if (shatterFX == null)
+            shatterFX = gameObject.AddComponent<PlatformShatterFX>();
     }
 
     private void Start()
@@ -68,6 +76,8 @@ public class Pulpit : MonoBehaviour
         remainingTime = lifetime;
         isDestroyed = false;
         hasPlayerVisited = false;
+
+        if (shatterFX != null) shatterFX.ResetDebris();
 
         SetPlatformVisibility(true);
         UpdateVisuals(1f);
@@ -110,12 +120,21 @@ public class Pulpit : MonoBehaviour
     {
         isDestroyed = true;
         SetPlatformVisibility(false);
+
+        // Trigger 3D physics shatter explosion!
+        if (shatterFX != null)
+        {
+            Color currentColor = runtimeMaterial != null ? runtimeMaterial.color : criticalColor;
+            shatterFX.Explode(currentColor, runtimeMaterial);
+        }
+
         GameEvents.TriggerPulpitDestroyed(transform.position);
     }
 
     private void ResurrectPulpit()
     {
         isDestroyed = false;
+        if (shatterFX != null) shatterFX.ResetDebris();
         SetPlatformVisibility(true);
     }
 
