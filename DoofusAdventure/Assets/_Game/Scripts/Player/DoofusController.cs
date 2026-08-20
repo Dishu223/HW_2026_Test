@@ -2,19 +2,19 @@
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Controls Doofus physics-based movement using Unity's New Input System.
-/// Default rotation faces camera (180 degrees).
+/// Controls Doofus physics movement and detects fatal falls.
+/// Intercepts fall with Prince of Persia Time Rewind if charges are available.
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
 public class DoofusController : MonoBehaviour
 {
     [Header("Fall Detection")]
-    [SerializeField] private float fallThresholdY = -5f;
+    [SerializeField] private float fallThresholdY = -2.5f;
 
     private Rigidbody rb;
     private Vector3 moveInput;
     private bool isInputActive = false;
-    private bool hasFallen = false;
+    private bool isRewinding = false;
 
     public Vector3 MoveInput => moveInput;
     public bool IsMoving => isInputActive && moveInput.sqrMagnitude > 0.01f;
@@ -25,7 +25,6 @@ public class DoofusController : MonoBehaviour
         rb.freezeRotation = true;
         rb.useGravity = true;
 
-        // Face camera at start (Y rotation = 180)
         transform.rotation = Quaternion.Euler(0f, 180f, 0f);
     }
 
@@ -59,7 +58,7 @@ public class DoofusController : MonoBehaviour
 
     private void Update()
     {
-        if (!isInputActive)
+        if (!isInputActive || isRewinding)
         {
             moveInput = Vector3.zero;
             return;
@@ -67,16 +66,25 @@ public class DoofusController : MonoBehaviour
 
         moveInput = ReadKeyboardInput();
 
-        if (!hasFallen && transform.position.y < fallThresholdY)
+        // Detect fatal fall
+        if (transform.position.y < fallThresholdY)
         {
-            hasFallen = true;
-            GameEvents.TriggerDoofusFell();
+            if (RewindManager.Instance != null && RewindManager.Instance.CanRewind)
+            {
+                // Prince of Persia Time Rewind!
+                RewindManager.Instance.TriggerRewind();
+            }
+            else
+            {
+                // Out of rewind charges -> Game Over!
+                GameEvents.TriggerDoofusFell();
+            }
         }
     }
 
     private void FixedUpdate()
     {
-        if (!isInputActive || moveInput == Vector3.zero) return;
+        if (!isInputActive || isRewinding || moveInput == Vector3.zero) return;
 
         float speed = GameConfig.Instance != null ? GameConfig.Instance.PlayerSpeed : 3f;
         Vector3 targetPosition = rb.position + moveInput * speed * Time.fixedDeltaTime;
@@ -104,10 +112,11 @@ public class DoofusController : MonoBehaviour
     private void HandleGameStart()
     {
         isInputActive = true;
-        hasFallen = false;
+        isRewinding = false;
 
         if (rb != null)
         {
+            rb.isKinematic = false;
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
             rb.position = new Vector3(0f, 1f, 0f);
@@ -130,21 +139,20 @@ public class DoofusController : MonoBehaviour
         {
             rb.linearVelocity = Vector3.zero;
             rb.position = new Vector3(0f, 1f, 0f);
-            transform.rotation = Quaternion.Euler(0f, 180f, 0f);
         }
     }
 
     private void HandleRewindStart()
     {
+        isRewinding = true;
         isInputActive = false;
-        rb.isKinematic = true;
+        moveInput = Vector3.zero;
     }
 
     private void HandleRewindComplete()
     {
+        isRewinding = false;
         isInputActive = true;
-        hasFallen = false;
-        rb.isKinematic = false;
     }
     #endregion
 }
