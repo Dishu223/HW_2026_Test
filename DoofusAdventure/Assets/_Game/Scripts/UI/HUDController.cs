@@ -4,9 +4,10 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Controls in-game HUD displays:
-/// - Score counter and Best Score
-/// - Sand of Time Rewind Charges using solid Unicode diamonds (◆) with color tinting
+/// Premium In-Game HUD Controller:
+/// - Displays SCORE and BEST Score (Top-Left)
+/// - Displays Sand of Time Rewind Charges Capsule (Top-Right)
+/// - Automatically removes on-screen timer bar (using the on-tile floating timer instead)
 /// </summary>
 [RequireComponent(typeof(CanvasGroup))]
 public class HUDController : MonoBehaviour
@@ -26,7 +27,43 @@ public class HUDController : MonoBehaviour
         canvasGroup = GetComponent<CanvasGroup>();
         if (canvasGroup == null) canvasGroup = gameObject.AddComponent<CanvasGroup>();
 
+        FormatPremiumHUDLayout();
         HideHUD();
+    }
+
+    private void FormatPremiumHUDLayout()
+    {
+        // 1. Hide redundant timer bar background
+        Transform timerBg = transform.Find("TimerBar_Background");
+        if (timerBg != null) timerBg.gameObject.SetActive(false);
+
+        // 2. Position Score in Top-Left
+        if (scoreText != null)
+        {
+            RectTransform rt = scoreText.rectTransform;
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(35f, -30f);
+            rt.sizeDelta = new Vector2(300f, 50f);
+            scoreText.alignment = TextAlignmentOptions.TopLeft;
+            scoreText.fontSize = 32f;
+            scoreText.fontStyle = FontStyles.Bold;
+        }
+
+        // 3. Position Rewind Charges in Top-Right
+        if (rewindChargesText != null)
+        {
+            RectTransform rt = rewindChargesText.rectTransform;
+            rt.anchorMin = new Vector2(1f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(1f, 1f);
+            rt.anchoredPosition = new Vector2(-35f, -30f);
+            rt.sizeDelta = new Vector2(300f, 50f);
+            rewindChargesText.alignment = TextAlignmentOptions.TopRight;
+            rewindChargesText.fontSize = 26f;
+            rewindChargesText.fontStyle = FontStyles.Bold;
+        }
     }
 
     private void OnEnable()
@@ -73,12 +110,12 @@ public class HUDController : MonoBehaviour
     {
         if (scoreText != null)
         {
-            scoreText.text = $"PULPITS: {newScore}";
+            scoreText.text = $"SCORE: {newScore}";
 
             if (gameObject.activeInHierarchy && canvasGroup != null && canvasGroup.alpha > 0.5f)
             {
                 if (scorePunchRoutine != null) StopCoroutine(scorePunchRoutine);
-                scorePunchRoutine = StartCoroutine(PunchScale(scoreText.transform, 1.35f, 0.2f));
+                scorePunchRoutine = StartCoroutine(PunchScale(scoreText.transform, 1.25f, 0.18f));
             }
         }
 
@@ -92,14 +129,13 @@ public class HUDController : MonoBehaviour
     {
         if (rewindChargesText == null) return;
 
-        // Use standard filled diamond ◆ (available in LiberationSans) and change color for spent charges
         string chargesDisplay = "";
         for (int i = 0; i < max; i++)
         {
             if (i < current)
-                chargesDisplay += "<color=#00E5FF>◆</color> "; // Glowing cyan diamond
+                chargesDisplay += "<color=#00E5FF>◆</color> ";
             else
-                chargesDisplay += "<color=#444444>◆</color> "; // Dim gray diamond
+                chargesDisplay += "<color=#444444>◆</color> ";
         }
 
         rewindChargesText.text = $"REWIND: {chargesDisplay.Trim()}";

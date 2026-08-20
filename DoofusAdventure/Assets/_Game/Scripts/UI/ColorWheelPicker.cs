@@ -4,10 +4,10 @@ using UnityEngine.UI;
 
 /// <summary>
 /// True Interactive Circular Color Wheel Picker:
-/// - Procedurally generates a smooth 360-degree HSV Color Wheel texture
-/// - Supports responsive clicking & continuous dragging across the circle
-/// - Includes Brightness slider and live cursor indicator
+/// - Guarantees strict 1:1 circular aspect ratio with zero oval stretching
+/// - Full 360-degree interactive dragging to the outer circle rim
 /// </summary>
+[RequireComponent(typeof(RectTransform))]
 public class ColorWheelPicker : MonoBehaviour, IPointerDownHandler, IDragHandler
 {
     public System.Action<Color> OnColorChanged;
@@ -21,27 +21,36 @@ public class ColorWheelPicker : MonoBehaviour, IPointerDownHandler, IDragHandler
     private float currentHue = 0f;
     private float currentSaturation = 0f;
     private float currentBrightness = 1f;
-    private float wheelRadius = 80f;
+    private float wheelRadius = 75f;
 
     public Color CurrentColor => Color.HSVToRGB(currentHue, currentSaturation, currentBrightness);
 
-    public void Initialize(float size = 160f)
+    public void Initialize(float size = 150f)
     {
         wheelRect = GetComponent<RectTransform>();
-        if (wheelRect == null) wheelRect = gameObject.AddComponent<RectTransform>();
         wheelRect.sizeDelta = new Vector2(size, size);
         wheelRadius = size * 0.5f;
+
+        // Force strict 1:1 layout sizing
+        LayoutElement le = GetComponent<LayoutElement>();
+        if (le == null) le = gameObject.AddComponent<LayoutElement>();
+        le.preferredWidth = size;
+        le.preferredHeight = size;
+        le.minWidth = size;
+        le.minHeight = size;
+        le.flexibleWidth = 0;
+        le.flexibleHeight = 0;
 
         wheelImage = GetComponent<Image>();
         if (wheelImage == null) wheelImage = gameObject.AddComponent<Image>();
 
-        // Generate procedural 256x256 HSV circular wheel texture
         Texture2D wheelTex = GenerateColorWheelTexture(256);
         Sprite wheelSprite = Sprite.Create(wheelTex, new Rect(0, 0, 256, 256), new Vector2(0.5f, 0.5f));
         wheelImage.sprite = wheelSprite;
+        wheelImage.preserveAspect = true;
         wheelImage.raycastTarget = true;
 
-        // Create Cursor Indicator Ring
+        // Cursor Indicator
         GameObject cursorObj = new GameObject("Wheel_Cursor");
         cursorObj.transform.SetParent(transform, false);
         cursorRect = cursorObj.AddComponent<RectTransform>();
@@ -90,15 +99,8 @@ public class ColorWheelPicker : MonoBehaviour, IPointerDownHandler, IDragHandler
         UpdatePreviewBox();
     }
 
-    public void OnPointerDown(PointerEventData eventData)
-    {
-        HandleWheelInput(eventData);
-    }
-
-    public void OnDrag(PointerEventData eventData)
-    {
-        HandleWheelInput(eventData);
-    }
+    public void OnPointerDown(PointerEventData eventData) => HandleWheelInput(eventData);
+    public void OnDrag(PointerEventData eventData) => HandleWheelInput(eventData);
 
     private void HandleWheelInput(PointerEventData eventData)
     {
@@ -115,7 +117,6 @@ public class ColorWheelPicker : MonoBehaviour, IPointerDownHandler, IDragHandler
             currentHue = hue;
             currentSaturation = sat;
 
-            // Clamp cursor visually within wheel
             Vector2 clampedPos = localPoint;
             if (dist > wheelRadius) clampedPos = localPoint.normalized * wheelRadius;
             if (cursorRect != null) cursorRect.anchoredPosition = clampedPos;
@@ -142,10 +143,7 @@ public class ColorWheelPicker : MonoBehaviour, IPointerDownHandler, IDragHandler
 
     private void UpdatePreviewBox()
     {
-        if (previewBox != null)
-        {
-            previewBox.color = CurrentColor;
-        }
+        if (previewBox != null) previewBox.color = CurrentColor;
     }
 
     private Texture2D GenerateColorWheelTexture(int resolution)
@@ -174,7 +172,6 @@ public class ColorWheelPicker : MonoBehaviour, IPointerDownHandler, IDragHandler
                     if (angle < 0f) angle += 360f;
                     float hue = angle / 360f;
 
-                    // Smooth antialiased outer ring edge
                     float alpha = 1f;
                     if (dist > radius - 1.5f)
                     {
