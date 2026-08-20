@@ -4,8 +4,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Handles Game Over Screen: counting-up score ticker, victory banner,
-/// best score display, and restart on 'R' key, Space, or screen click.
+/// Handles Game Over Screen. Only runs input detection when GameOver panel is active.
 /// </summary>
 public class GameOverUI : MonoBehaviour
 {
@@ -16,25 +15,26 @@ public class GameOverUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI restartPromptText;
 
     private Coroutine scoreTickerRoutine;
+    private float activationCooldown = 0.3f;
+    private float timer = 0f;
 
     private void OnEnable()
     {
-        GameEvents.OnGameOver += DisplayGameOverResults;
-    }
-
-    private void OnDisable()
-    {
-        GameEvents.OnGameOver -= DisplayGameOverResults;
+        timer = 0f;
+        DisplayGameOverResults();
     }
 
     private void Update()
     {
+        timer += Time.unscaledDeltaTime;
+        if (timer < activationCooldown) return; // Prevent accidental instant skip on death frame
+
         if (restartPromptText != null)
         {
             restartPromptText.alpha = 0.4f + Mathf.PingPong(Time.unscaledTime * 2.5f, 0.6f);
         }
 
-        // Detect R key, Space, Enter, or Mouse click to restart
+        // Detect R key, Space, Enter, or Click to restart
         Keyboard keyboard = Keyboard.current;
         if (keyboard != null && (keyboard.rKey.wasPressedThisFrame || keyboard.spaceKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame))
         {
@@ -58,7 +58,6 @@ public class GameOverUI : MonoBehaviour
         if (bestScoreText != null)
             bestScoreText.text = $"BEST: {best}";
 
-        // Show special win banner without unsupported emojis to prevent font warnings
         if (victoryBannerText != null)
         {
             victoryBannerText.gameObject.SetActive(score >= 50);

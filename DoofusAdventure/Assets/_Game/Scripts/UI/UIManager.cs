@@ -1,25 +1,19 @@
-﻿using System.Collections;
-using UnityEngine;
+﻿using UnityEngine;
 
 /// <summary>
-/// Master UI Router managing panel switching (Start Screen, Lobby, HUD, Game Over)
-/// with rock-solid visibility management.
+/// Master UI Router managing screen switching.
+/// Directly toggles panel GameObjects (Start Screen, HUD, Game Over)
+/// so inactive screens cannot intercept input or run background Update loops.
 /// </summary>
 public class UIManager : MonoBehaviour
 {
     public static UIManager Instance { get; private set; }
 
-    [Header("UI Panels (CanvasGroups)")]
-    [SerializeField] private CanvasGroup startScreenPanel;
-    [SerializeField] private CanvasGroup lobbyPanel;
-    [SerializeField] private CanvasGroup hudPanel;
-    [SerializeField] private CanvasGroup gameOverPanel;
-
-    [Header("Transition Settings")]
-    [SerializeField] private float fadeDuration = 0.15f;
-
-    private CanvasGroup activePanel;
-    private Coroutine transitionRoutine;
+    [Header("UI Panels")]
+    [SerializeField] private GameObject startScreenPanel;
+    [SerializeField] private GameObject lobbyPanel;
+    [SerializeField] private GameObject hudPanel;
+    [SerializeField] private GameObject gameOverPanel;
 
     private void Awake()
     {
@@ -34,7 +28,6 @@ public class UIManager : MonoBehaviour
 
     private void Start()
     {
-        // Show Start Screen initially
         ShowStartScreen();
     }
 
@@ -56,48 +49,50 @@ public class UIManager : MonoBehaviour
 
     public void ShowStartScreen()
     {
-        SetPanelState(startScreenPanel, true);
-        SetPanelState(lobbyPanel, false);
-        SetPanelState(hudPanel, false);
-        SetPanelState(gameOverPanel, false);
-        activePanel = startScreenPanel;
+        SetPanelActive(startScreenPanel, true);
+        SetPanelActive(lobbyPanel, false);
+        SetPanelActive(hudPanel, false);
+        SetPanelActive(gameOverPanel, false);
     }
 
     public void ShowHUD()
     {
-        SetPanelState(startScreenPanel, false);
-        SetPanelState(lobbyPanel, false);
-        SetPanelState(gameOverPanel, false);
-        SetPanelState(hudPanel, true);
-        activePanel = hudPanel;
+        SetPanelActive(startScreenPanel, false);
+        SetPanelActive(lobbyPanel, false);
+        SetPanelActive(gameOverPanel, false);
+        SetPanelActive(hudPanel, true);
     }
 
     public void ShowGameOver()
     {
-        SetPanelState(startScreenPanel, false);
-        SetPanelState(lobbyPanel, false);
-        SetPanelState(hudPanel, false);
-        SetPanelState(gameOverPanel, true);
-        activePanel = gameOverPanel;
+        SetPanelActive(startScreenPanel, false);
+        SetPanelActive(lobbyPanel, false);
+        SetPanelActive(hudPanel, false);
+        SetPanelActive(gameOverPanel, true);
     }
 
     public void ShowLobby()
     {
-        SetPanelState(startScreenPanel, false);
-        SetPanelState(lobbyPanel, true);
-        SetPanelState(hudPanel, false);
-        SetPanelState(gameOverPanel, false);
-        activePanel = lobbyPanel;
+        SetPanelActive(startScreenPanel, false);
+        SetPanelActive(lobbyPanel, true);
+        SetPanelActive(hudPanel, false);
+        SetPanelActive(gameOverPanel, false);
     }
 
-    private void SetPanelState(CanvasGroup panel, bool visible)
+    private void SetPanelActive(GameObject panel, bool active)
     {
         if (panel == null) return;
 
-        panel.gameObject.SetActive(true); // Ensure GameObject is active
-        panel.alpha = visible ? 1f : 0f;
-        panel.interactable = visible;
-        panel.blocksRaycasts = visible;
+        panel.SetActive(active);
+
+        // If it has a CanvasGroup, ensure it is fully opaque and interactive
+        CanvasGroup cg = panel.GetComponent<CanvasGroup>();
+        if (cg != null)
+        {
+            cg.alpha = active ? 1f : 0f;
+            cg.interactable = active;
+            cg.blocksRaycasts = active;
+        }
     }
 
     #region Event Handlers
