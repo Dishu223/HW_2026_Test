@@ -6,7 +6,7 @@ using UnityEngine.UI;
 /// <summary>
 /// Controls in-game HUD displays:
 /// - Score counter and Best Score
-/// - Sand of Time Rewind Charges using universal geometric symbols (◆ ◆ ◆)
+/// - Sand of Time Rewind Charges using solid Unicode diamonds (◆) with color tinting
 /// </summary>
 [RequireComponent(typeof(CanvasGroup))]
 public class HUDController : MonoBehaviour
@@ -88,20 +88,18 @@ public class HUDController : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Uses universal geometric symbols (◆ / ◇) supported by all Unity fonts!
-    /// </summary>
     private void UpdateChargesDisplay(int current, int max)
     {
         if (rewindChargesText == null) return;
 
+        // Use standard filled diamond ◆ (available in LiberationSans) and change color for spent charges
         string chargesDisplay = "";
         for (int i = 0; i < max; i++)
         {
             if (i < current)
-                chargesDisplay += "<color=#00E5FF>◆</color> "; // Glowing Cyan Diamond
+                chargesDisplay += "<color=#00E5FF>◆</color> "; // Glowing cyan diamond
             else
-                chargesDisplay += "<color=#666666>◇</color> "; // Empty Outlined Diamond
+                chargesDisplay += "<color=#444444>◆</color> "; // Dim gray diamond
         }
 
         rewindChargesText.text = $"REWIND: {chargesDisplay.Trim()}";

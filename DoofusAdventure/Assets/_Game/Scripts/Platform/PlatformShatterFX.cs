@@ -2,17 +2,17 @@
 using UnityEngine;
 
 /// <summary>
-/// Controls the smooth 3D crumbling shatter effect:
-/// - Generates a 6x6 grid of 36 sleek mini-shards
-/// - Crumblingly breaks apart and tumbles smoothly downwards into the void
-/// - Reassembles gracefully during Time Rewind
+/// Controls the clean, compact 3D crumbling shatter effect:
+/// - 3x3 grid of 9 neat, thin floor tile shards (no clutter or giant beams)
+/// - Gently separates and tumbles downwards with gravity
+/// - Reassembles smoothly during Time Rewind
 /// </summary>
 public class PlatformShatterFX : MonoBehaviour
 {
     [Header("Shatter Physics")]
-    [SerializeField] private int gridSubdivisions = 6; // 6x6 = 36 sleek mini-shards
-    [SerializeField] private float separationForce = 20f; // Gentle outward separation
-    [SerializeField] private float randomTorqueAmount = 8f;
+    [SerializeField] private int gridSubdivisions = 3; // 3x3 = 9 neat, distinct tile pieces
+    [SerializeField] private float separationForce = 12f;
+    [SerializeField] private float randomTorqueAmount = 5f;
 
     private struct DebrisShard
     {
@@ -64,7 +64,6 @@ public class PlatformShatterFX : MonoBehaviour
 
         float shardSizeX = 1f / gridSubdivisions;
         float shardSizeZ = 1f / gridSubdivisions;
-        float shardHeight = 1f;
 
         for (int x = 0; x < gridSubdivisions; x++)
         {
@@ -75,16 +74,18 @@ public class PlatformShatterFX : MonoBehaviour
                 Vector3 localPos = new Vector3(localX, 0f, localZ);
 
                 GameObject shardObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                shardObj.name = $"Shard_{x}_{z}";
+                shardObj.name = $"TileShard_{x}_{z}";
                 shardObj.transform.SetParent(transform, false);
                 shardObj.transform.localPosition = localPos;
-                shardObj.transform.localScale = new Vector3(shardSizeX * 0.92f, shardHeight * 0.92f, shardSizeZ * 0.92f);
+
+                // Thin, compact, lightweight tile dimensions
+                shardObj.transform.localScale = new Vector3(shardSizeX * 0.70f, 0.40f, shardSizeZ * 0.70f);
 
                 Rigidbody rb = shardObj.GetComponent<Rigidbody>();
                 if (rb == null) rb = shardObj.AddComponent<Rigidbody>();
-                rb.mass = 0.2f;
-                rb.linearDamping = 0.8f; // Smooth floaty air resistance
-                rb.angularDamping = 1.0f;
+                rb.mass = 0.15f;
+                rb.linearDamping = 0.6f;
+                rb.angularDamping = 0.8f;
                 rb.isKinematic = true;
                 rb.useGravity = false;
 
@@ -134,11 +135,9 @@ public class PlatformShatterFX : MonoBehaviour
             shard.rigidbody.isKinematic = false;
             shard.rigidbody.useGravity = true;
 
-            // Gentle outward separation vector + smooth downward gravity tumble
-            Vector2 randCircle = Random.insideUnitCircle.normalized * Random.Range(1f, 3f);
-            Vector3 pushDirection = new Vector3(shard.initialLocalPos.x * 2.5f + randCircle.x, -0.5f, shard.initialLocalPos.z * 2.5f + randCircle.y).normalized;
-
-            shard.rigidbody.linearVelocity = pushDirection * separationForce * 0.25f;
+            // Gentle natural outward crumble
+            Vector3 pushDirection = new Vector3(shard.initialLocalPos.x * 1.5f, -0.4f, shard.initialLocalPos.z * 1.5f).normalized;
+            shard.rigidbody.linearVelocity = pushDirection * separationForce * 0.3f;
             shard.rigidbody.AddTorque(Random.insideUnitSphere * randomTorqueAmount, ForceMode.Impulse);
         }
     }
