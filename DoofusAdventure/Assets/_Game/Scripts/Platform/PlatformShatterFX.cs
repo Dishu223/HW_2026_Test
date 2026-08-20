@@ -2,18 +2,17 @@
 using UnityEngine;
 
 /// <summary>
-/// Controls the 3D physics shatter explosion and reverse-reassembly for platforms:
-/// - Generates a 4x4 grid of 16 physics debris shards on boot
-/// - Explodes outward when platform reaches 0.00s
-/// - Rewinds debris trajectories in reverse during Time Rewind, fusing back into the solid platform!
+/// Controls the smooth 3D crumbling shatter effect:
+/// - Generates a 6x6 grid of 36 sleek mini-shards
+/// - Crumblingly breaks apart and tumbles smoothly downwards into the void
+/// - Reassembles gracefully during Time Rewind
 /// </summary>
 public class PlatformShatterFX : MonoBehaviour
 {
     [Header("Shatter Physics")]
-    [SerializeField] private int gridSubdivisions = 4; // 4x4 = 16 shards
-    [SerializeField] private float explosionForce = 350f;
-    [SerializeField] private float explosionRadius = 5f;
-    [SerializeField] private float upwardModifier = 1.2f;
+    [SerializeField] private int gridSubdivisions = 6; // 6x6 = 36 sleek mini-shards
+    [SerializeField] private float separationForce = 20f; // Gentle outward separation
+    [SerializeField] private float randomTorqueAmount = 8f;
 
     private struct DebrisShard
     {
@@ -59,16 +58,13 @@ public class PlatformShatterFX : MonoBehaviour
         GameEvents.OnRewindComplete -= HandleRewindComplete;
     }
 
-    /// <summary>
-    /// Procedurally creates a 4x4 grid of 16 mini-cube debris shards matching the platform's dimensions.
-    /// </summary>
     private void GenerateProceduralShards()
     {
         if (shards.Count > 0) return;
 
         float shardSizeX = 1f / gridSubdivisions;
         float shardSizeZ = 1f / gridSubdivisions;
-        float shardHeight = 1f; // Relative to local platform height
+        float shardHeight = 1f;
 
         for (int x = 0; x < gridSubdivisions; x++)
         {
@@ -79,19 +75,19 @@ public class PlatformShatterFX : MonoBehaviour
                 Vector3 localPos = new Vector3(localX, 0f, localZ);
 
                 GameObject shardObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                shardObj.name = $"Debris_{x}_{z}";
+                shardObj.name = $"Shard_{x}_{z}";
                 shardObj.transform.SetParent(transform, false);
                 shardObj.transform.localPosition = localPos;
-                shardObj.transform.localScale = new Vector3(shardSizeX * 0.95f, shardHeight, shardSizeZ * 0.95f);
+                shardObj.transform.localScale = new Vector3(shardSizeX * 0.92f, shardHeight * 0.92f, shardSizeZ * 0.92f);
 
-                // Configure physics
                 Rigidbody rb = shardObj.GetComponent<Rigidbody>();
                 if (rb == null) rb = shardObj.AddComponent<Rigidbody>();
-                rb.mass = 0.5f;
+                rb.mass = 0.2f;
+                rb.linearDamping = 0.8f; // Smooth floaty air resistance
+                rb.angularDamping = 1.0f;
                 rb.isKinematic = true;
                 rb.useGravity = false;
 
-                // Disable collisions between debris shards and player
                 Collider col = shardObj.GetComponent<Collider>();
                 if (col != null) col.enabled = false;
 
@@ -115,15 +111,10 @@ public class PlatformShatterFX : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Triggers outward physics explosion when platform reaches 0.00s.
-    /// </summary>
     public void Explode(Color platformColor, Material sharedMaterial)
     {
         isShattered = true;
         isRewinding = false;
-
-        Vector3 explosionCenter = transform.position + new Vector3(0f, -0.5f, 0f);
 
         for (int i = 0; i < shards.Count; i++)
         {
@@ -143,9 +134,12 @@ public class PlatformShatterFX : MonoBehaviour
             shard.rigidbody.isKinematic = false;
             shard.rigidbody.useGravity = true;
 
-            // Add outward radial explosive force + random tumbling torque
-            shard.rigidbody.AddExplosionForce(explosionForce, explosionCenter, explosionRadius, upwardModifier, ForceMode.Impulse);
-            shard.rigidbody.AddTorque(Random.insideUnitSphere * 40f, ForceMode.Impulse);
+            // Gentle outward separation vector + smooth downward gravity tumble
+            Vector2 randCircle = Random.insideUnitCircle.normalized * Random.Range(1f, 3f);
+            Vector3 pushDirection = new Vector3(shard.initialLocalPos.x * 2.5f + randCircle.x, -0.5f, shard.initialLocalPos.z * 2.5f + randCircle.y).normalized;
+
+            shard.rigidbody.linearVelocity = pushDirection * separationForce * 0.25f;
+            shard.rigidbody.AddTorque(Random.insideUnitSphere * randomTorqueAmount, ForceMode.Impulse);
         }
     }
 
@@ -153,7 +147,6 @@ public class PlatformShatterFX : MonoBehaviour
     {
         if (isShattered && !isRewinding)
         {
-            // Record trajectory history for reverse playback
             for (int i = 0; i < shards.Count; i++)
             {
                 DebrisShard shard = shards[i];
@@ -171,9 +164,6 @@ public class PlatformShatterFX : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Plays shattered debris trajectories in reverse during Time Rewind.
-    /// </summary>
     public void RewindDebrisStep()
     {
         int finishedCount = 0;
@@ -202,7 +192,6 @@ public class PlatformShatterFX : MonoBehaviour
             }
         }
 
-        // When all shards have returned to rest position, fuse back into solid platform!
         if (finishedCount >= shards.Count)
         {
             ResetDebris();
