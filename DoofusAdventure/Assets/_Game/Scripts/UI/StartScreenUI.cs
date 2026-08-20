@@ -6,9 +6,10 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Combined Start Screen & Character Customization Lobby UI:
-/// - Title & Animated Prompt (>> PRESS SPACE OR CLICK PLAY <<)
-/// - Preset Palettes + 360-Degree Rainbow Color Wheel Swatches
-/// - Target Selector (BODY / HEAD / EYES)
+/// - True Interactive Circular HSV Color Wheel Picker (click & drag anywhere on the circle)
+/// - Target Selector (BODY / HEAD / EYES) with perfect click isolation (zero raycast overlap bugs)
+/// - Brightness Slider & Live Color Preview Box
+/// - Quick Preset Swatches
 /// - Real-time 3D Doofus Turntable Rotation Preview
 /// - Saves colors to PlayerPrefs and starts game seamlessly
 /// </summary>
@@ -23,14 +24,11 @@ public class StartScreenUI : MonoBehaviour
     private DoofusController doofusPreview;
     private CustomizationManager.CustomPart selectedPart = CustomizationManager.CustomPart.Body;
 
-    private Button bodyTabBtn;
-    private Button headTabBtn;
-    private Button eyeTabBtn;
-    private Image bodyTabImg;
-    private Image headTabImg;
-    private Image eyeTabImg;
-
-    private readonly List<Image> wheelSwatchOutlines = new List<Image>();
+    private Image bodyTabBg;
+    private Image headTabBg;
+    private Image eyeTabBg;
+    private ColorWheelPicker colorWheel;
+    private Image liveColorPreviewBox;
 
     private void Awake()
     {
@@ -54,7 +52,7 @@ public class StartScreenUI : MonoBehaviour
         }
 
         BuildCustomizationLobbyPanel();
-        RefreshTabHighlights();
+        RefreshActiveTabVisuals();
     }
 
     private void Update()
@@ -90,7 +88,7 @@ public class StartScreenUI : MonoBehaviour
     {
         if (CustomizationManager.Instance == null) return;
 
-        // Create sleek Dark-Glass Customization Card on the Right Side
+        // Dark-Glass Studio Card on the Right Side
         customPanelObj = new GameObject("Customization_Card");
         customPanelObj.transform.SetParent(transform, false);
 
@@ -98,63 +96,69 @@ public class StartScreenUI : MonoBehaviour
         panelRT.anchorMin = new Vector2(1f, 0.5f);
         panelRT.anchorMax = new Vector2(1f, 0.5f);
         panelRT.pivot = new Vector2(1f, 0.5f);
-        panelRT.anchoredPosition = new Vector2(-40f, 0f);
-        panelRT.sizeDelta = new Vector2(380f, 460f);
+        panelRT.anchoredPosition = new Vector2(-35f, 0f);
+        panelRT.sizeDelta = new Vector2(360f, 520f);
 
         Image bgImage = customPanelObj.AddComponent<Image>();
-        bgImage.color = new Color(0.04f, 0.07f, 0.11f, 0.90f);
+        bgImage.color = new Color(0.04f, 0.07f, 0.12f, 0.94f);
 
         VerticalLayoutGroup vlg = customPanelObj.AddComponent<VerticalLayoutGroup>();
-        vlg.padding = new RectOffset(18, 18, 18, 18);
-        vlg.spacing = 12f;
+        vlg.padding = new RectOffset(16, 16, 16, 16);
+        vlg.spacing = 10f;
         vlg.childAlignment = TextAnchor.UpperCenter;
         vlg.childControlWidth = true;
         vlg.childControlHeight = false;
 
-        // Card Header Title
-        CreateTextLabel(customPanelObj.transform, "🎨 CHARACTER STUDIO", 18f, FontStyles.Bold, new Color(0f, 0.90f, 1f));
+        // 1. Header Title
+        CreateHeaderLabel(customPanelObj.transform, "🎨 CHARACTER STUDIO", 18f, FontStyles.Bold, new Color(0f, 0.90f, 1f));
 
-        // Part Selector Tabs [ BODY ] [ HEAD ] [ EYES ]
-        Transform tabsRow = CreateRowContainer(customPanelObj.transform, 36f);
-        bodyTabBtn = CreateTabButton(tabsRow, "BODY", () => SetActiveTab(CustomizationManager.CustomPart.Body), out bodyTabImg);
-        headTabBtn = CreateTabButton(tabsRow, "HEAD", () => SetActiveTab(CustomizationManager.CustomPart.Head), out headTabImg);
-        eyeTabBtn = CreateTabButton(tabsRow, "EYES", () => SetActiveTab(CustomizationManager.CustomPart.Eyes), out eyeTabImg);
+        // 2. Part Selector Tabs [ BODY ] [ HEAD ] [ EYES ]
+        Transform tabsRow = CreateRowContainer(customPanelObj.transform, 34f, 6f);
+        CreateTabButton(tabsRow, "BODY", () => SwitchTab(CustomizationManager.CustomPart.Body), out bodyTabBg);
+        CreateTabButton(tabsRow, "HEAD", () => SwitchTab(CustomizationManager.CustomPart.Head), out headTabBg);
+        CreateTabButton(tabsRow, "EYES", () => SwitchTab(CustomizationManager.CustomPart.Eyes), out eyeTabBg);
 
-        // Section Title: Rainbow Spectrum & Color Wheel
-        CreateTextLabel(customPanelObj.transform, "🌈 360° COLOR WHEEL SPECTRUM", 12f, FontStyles.Bold, new Color(0.85f, 0.90f, 0.95f));
+        // 3. Interactive Circular HSV Color Wheel (150px diameter)
+        GameObject wheelObj = new GameObject("Color_Wheel_Object");
+        wheelObj.transform.SetParent(customPanelObj.transform, false);
+        colorWheel = wheelObj.AddComponent<ColorWheelPicker>();
+        colorWheel.Initialize(145f);
+        colorWheel.OnColorChanged = (color) => {
+            CustomizationManager.Instance.SetCustomPartColor(selectedPart, color);
+        };
 
-        // 360-Degree Rainbow Color Wheel Grid (2 Rows of 6 swatches)
-        Transform wheelRow1 = CreateRowContainer(customPanelObj.transform, 34f);
-        for (int i = 0; i < 6; i++)
-        {
-            int idx = i;
-            Color c = CustomizationManager.Instance.rainbowWheelColors[i];
-            CreateSwatchButton(wheelRow1, c, wheelSwatchOutlines, () => ApplyWheelColor(c));
-        }
+        // 4. Brightness Slider Row + Live Preview Box
+        Transform sliderRow = CreateRowContainer(customPanelObj.transform, 28f, 8f);
 
-        Transform wheelRow2 = CreateRowContainer(customPanelObj.transform, 34f);
-        for (int i = 6; i < CustomizationManager.Instance.rainbowWheelColors.Length; i++)
-        {
-            int idx = i;
-            Color c = CustomizationManager.Instance.rainbowWheelColors[i];
-            CreateSwatchButton(wheelRow2, c, wheelSwatchOutlines, () => ApplyWheelColor(c));
-        }
+        // Preview Box
+        GameObject prevObj = new GameObject("Color_Preview_Box");
+        prevObj.transform.SetParent(sliderRow, false);
+        RectTransform prevRT = prevObj.AddComponent<RectTransform>();
+        prevRT.sizeDelta = new Vector2(28f, 28f);
+        liveColorPreviewBox = prevObj.AddComponent<Image>();
+        liveColorPreviewBox.color = Color.white;
+        liveColorPreviewBox.raycastTarget = false;
+        colorWheel.SetPreviewBox(liveColorPreviewBox);
 
-        // Section Title: Quick Classic Presets
-        CreateTextLabel(customPanelObj.transform, "QUICK PALETTE PRESETS", 12f, FontStyles.Bold, new Color(0.75f, 0.80f, 0.85f));
-        Transform presetRow = CreateRowContainer(customPanelObj.transform, 32f);
+        // Brightness Slider
+        Slider brightnessSlider = CreateBrightnessSlider(sliderRow);
+        colorWheel.SetBrightnessSlider(brightnessSlider);
+
+        // 5. Quick Color Presets
+        CreateHeaderLabel(customPanelObj.transform, "QUICK PALETTE PRESETS", 11f, FontStyles.Bold, new Color(0.70f, 0.78f, 0.88f));
+        Transform presetRow = CreateRowContainer(customPanelObj.transform, 30f, 5f);
         for (int i = 0; i < CustomizationManager.Instance.bodyColors.Length; i++)
         {
             int idx = i;
             Color c = CustomizationManager.Instance.bodyColors[i];
-            CreateSwatchButton(presetRow, c, null, () => ApplyPresetColor(idx));
+            CreatePresetSwatchButton(presetRow, c, () => ApplyPreset(idx, c));
         }
 
-        // Play Button
+        // 6. Play Button
         GameObject playBtnObj = new GameObject("Play_Button");
         playBtnObj.transform.SetParent(customPanelObj.transform, false);
         RectTransform playBtnRT = playBtnObj.AddComponent<RectTransform>();
-        playBtnRT.sizeDelta = new Vector2(340f, 44f);
+        playBtnRT.sizeDelta = new Vector2(328f, 42f);
 
         Image playBtnImg = playBtnObj.AddComponent<Image>();
         playBtnImg.color = new Color(0f, 0.85f, 0.45f);
@@ -162,49 +166,58 @@ public class StartScreenUI : MonoBehaviour
         Button playBtn = playBtnObj.AddComponent<Button>();
         playBtn.onClick.AddListener(LaunchGame);
 
-        CreateTextLabel(playBtnObj.transform, "START RUN  ▶", 16f, FontStyles.Bold, Color.black);
+        CreateButtonLabel(playBtnObj.transform, "START RUN  ▶", 15f, FontStyles.Bold, Color.black);
     }
 
-    private Button CreateTabButton(Transform parent, string label, UnityEngine.Events.UnityAction onClick, out Image tabBg)
+    private void CreateTabButton(Transform parent, string label, UnityEngine.Events.UnityAction onClick, out Image tabBg)
     {
         GameObject btnObj = new GameObject("Tab_" + label);
         btnObj.transform.SetParent(parent, false);
         RectTransform rt = btnObj.AddComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(105f, 32f);
+        rt.sizeDelta = new Vector2(100f, 32f);
 
         tabBg = btnObj.AddComponent<Image>();
-        tabBg.color = new Color(0.15f, 0.20f, 0.28f);
+        tabBg.color = new Color(0.14f, 0.18f, 0.25f);
+        tabBg.raycastTarget = true;
 
         Button btn = btnObj.AddComponent<Button>();
+        btn.targetGraphic = tabBg;
         btn.onClick.AddListener(onClick);
 
-        CreateTextLabel(btnObj.transform, label, 12f, FontStyles.Bold, Color.white);
-        return btn;
+        // Child text strictly constrained with raycastTarget = false!
+        CreateButtonLabel(btnObj.transform, label, 12f, FontStyles.Bold, Color.white);
     }
 
-    private void SetActiveTab(CustomizationManager.CustomPart part)
+    private void SwitchTab(CustomizationManager.CustomPart part)
     {
         selectedPart = part;
-        RefreshTabHighlights();
+        RefreshActiveTabVisuals();
     }
 
-    private void RefreshTabHighlights()
+    private void RefreshActiveTabVisuals()
     {
         Color activeCol = new Color(0f, 0.80f, 1f, 1f);
-        Color inactiveCol = new Color(0.15f, 0.20f, 0.28f, 0.9f);
+        Color inactiveCol = new Color(0.14f, 0.18f, 0.25f, 0.9f);
 
-        if (bodyTabImg != null) bodyTabImg.color = (selectedPart == CustomizationManager.CustomPart.Body) ? activeCol : inactiveCol;
-        if (headTabImg != null) headTabImg.color = (selectedPart == CustomizationManager.CustomPart.Head) ? activeCol : inactiveCol;
-        if (eyeTabImg != null) eyeTabImg.color = (selectedPart == CustomizationManager.CustomPart.Eyes) ? activeCol : inactiveCol;
+        if (bodyTabBg != null) bodyTabBg.color = (selectedPart == CustomizationManager.CustomPart.Body) ? activeCol : inactiveCol;
+        if (headTabBg != null) headTabBg.color = (selectedPart == CustomizationManager.CustomPart.Head) ? activeCol : inactiveCol;
+        if (eyeTabBg != null) eyeTabBg.color = (selectedPart == CustomizationManager.CustomPart.Eyes) ? activeCol : inactiveCol;
+
+        // Sync color wheel cursor with current part color
+        if (colorWheel != null && CustomizationManager.Instance != null)
+        {
+            Color currentPartColor = selectedPart switch
+            {
+                CustomizationManager.CustomPart.Body => CustomizationManager.Instance.CurrentBodyColor,
+                CustomizationManager.CustomPart.Head => CustomizationManager.Instance.CurrentHeadColor,
+                CustomizationManager.CustomPart.Eyes => CustomizationManager.Instance.CurrentEyeColor,
+                _ => Color.white
+            };
+            colorWheel.SetColor(currentPartColor);
+        }
     }
 
-    private void ApplyWheelColor(Color c)
-    {
-        if (CustomizationManager.Instance == null) return;
-        CustomizationManager.Instance.SetCustomPartColor(selectedPart, c);
-    }
-
-    private void ApplyPresetColor(int idx)
+    private void ApplyPreset(int idx, Color c)
     {
         if (CustomizationManager.Instance == null) return;
 
@@ -220,17 +233,95 @@ public class StartScreenUI : MonoBehaviour
                 CustomizationManager.Instance.SetEyeColor(idx % CustomizationManager.Instance.eyeColors.Length);
                 break;
         }
+
+        if (colorWheel != null) colorWheel.SetColor(c);
     }
 
-    private Transform CreateRowContainer(Transform parent, float height)
+    private Slider CreateBrightnessSlider(Transform parent)
+    {
+        GameObject sliderObj = new GameObject("Brightness_Slider");
+        sliderObj.transform.SetParent(parent, false);
+        RectTransform rt = sliderObj.AddComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(240f, 20f);
+
+        Slider slider = sliderObj.AddComponent<Slider>();
+        slider.minValue = 0.05f;
+        slider.maxValue = 1.0f;
+        slider.value = 1.0f;
+
+        // Background
+        GameObject bgObj = new GameObject("Background");
+        bgObj.transform.SetParent(sliderObj.transform, false);
+        RectTransform bgRT = bgObj.AddComponent<RectTransform>();
+        bgRT.anchorMin = new Vector2(0f, 0.25f);
+        bgRT.anchorMax = new Vector2(1f, 0.75f);
+        bgRT.sizeDelta = Vector2.zero;
+        Image bgImg = bgObj.AddComponent<Image>();
+        bgImg.color = new Color(0.2f, 0.25f, 0.35f);
+
+        // Fill Area
+        GameObject fillArea = new GameObject("Fill Area");
+        fillArea.transform.SetParent(sliderObj.transform, false);
+        RectTransform fillAreaRT = fillArea.AddComponent<RectTransform>();
+        fillAreaRT.anchorMin = new Vector2(0f, 0.25f);
+        fillAreaRT.anchorMax = new Vector2(1f, 0.75f);
+        fillAreaRT.sizeDelta = new Vector2(-10f, 0f);
+
+        GameObject fill = new GameObject("Fill");
+        fill.transform.SetParent(fillArea.transform, false);
+        RectTransform fillRT = fill.AddComponent<RectTransform>();
+        fillRT.sizeDelta = Vector2.zero;
+        Image fillImg = fill.AddComponent<Image>();
+        fillImg.color = new Color(0f, 0.85f, 1f);
+
+        // Handle
+        GameObject handleArea = new GameObject("Handle Slide Area");
+        handleArea.transform.SetParent(sliderObj.transform, false);
+        RectTransform handleAreaRT = handleArea.AddComponent<RectTransform>();
+        handleAreaRT.anchorMin = Vector2.zero;
+        handleAreaRT.anchorMax = Vector2.one;
+        handleAreaRT.sizeDelta = new Vector2(-10f, 0f);
+
+        GameObject handle = new GameObject("Handle");
+        handle.transform.SetParent(handleArea.transform, false);
+        RectTransform handleRT = handle.AddComponent<RectTransform>();
+        handleRT.sizeDelta = new Vector2(16f, 16f);
+        Image handleImg = handle.AddComponent<Image>();
+        handleImg.color = Color.white;
+
+        slider.fillRect = fillRT;
+        slider.handleRect = handleRT;
+        slider.targetGraphic = handleImg;
+        slider.direction = Slider.Direction.LeftToRight;
+
+        return slider;
+    }
+
+    private void CreatePresetSwatchButton(Transform parent, Color color, UnityEngine.Events.UnityAction onClick)
+    {
+        GameObject btnObj = new GameObject("Swatch_Btn");
+        btnObj.transform.SetParent(parent, false);
+        RectTransform rt = btnObj.AddComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(28f, 28f);
+
+        Image btnImg = btnObj.AddComponent<Image>();
+        btnImg.color = color;
+        btnImg.raycastTarget = true;
+
+        Button btn = btnObj.AddComponent<Button>();
+        btn.targetGraphic = btnImg;
+        btn.onClick.AddListener(onClick);
+    }
+
+    private Transform CreateRowContainer(Transform parent, float height, float spacing)
     {
         GameObject row = new GameObject("Row");
         row.transform.SetParent(parent, false);
         RectTransform rt = row.AddComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(340f, height);
+        rt.sizeDelta = new Vector2(328f, height);
 
         HorizontalLayoutGroup hlg = row.AddComponent<HorizontalLayoutGroup>();
-        hlg.spacing = 6f;
+        hlg.spacing = spacing;
         hlg.childAlignment = TextAnchor.MiddleCenter;
         hlg.childControlWidth = false;
         hlg.childControlHeight = false;
@@ -238,38 +329,12 @@ public class StartScreenUI : MonoBehaviour
         return row.transform;
     }
 
-    private void CreateSwatchButton(Transform parent, Color color, List<Image> outlineList, UnityEngine.Events.UnityAction onClick)
+    private void CreateHeaderLabel(Transform parent, string text, float size, FontStyles style, Color color)
     {
-        GameObject btnObj = new GameObject("Swatch_Btn");
-        btnObj.transform.SetParent(parent, false);
-        RectTransform rt = btnObj.AddComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(28f, 28f);
-
-        Image outlineImg = btnObj.AddComponent<Image>();
-        outlineImg.color = new Color(1f, 1f, 1f, 0.2f);
-        if (outlineList != null) outlineList.Add(outlineImg);
-
-        GameObject inner = new GameObject("Color_Inner");
-        inner.transform.SetParent(btnObj.transform, false);
-        RectTransform innerRT = inner.AddComponent<RectTransform>();
-        innerRT.anchorMin = Vector2.zero;
-        innerRT.anchorMax = Vector2.one;
-        innerRT.sizeDelta = new Vector2(-4f, -4f);
-
-        Image innerImg = inner.AddComponent<Image>();
-        innerImg.color = color;
-
-        Button btn = btnObj.AddComponent<Button>();
-        btn.targetGraphic = innerImg;
-        btn.onClick.AddListener(onClick);
-    }
-
-    private void CreateTextLabel(Transform parent, string text, float size, FontStyles style, Color color)
-    {
-        GameObject txtObj = new GameObject("Label_" + text);
+        GameObject txtObj = new GameObject("Header_" + text);
         txtObj.transform.SetParent(parent, false);
         RectTransform rt = txtObj.AddComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(340f, size + 6f);
+        rt.sizeDelta = new Vector2(328f, size + 6f);
 
         TextMeshProUGUI tmp = txtObj.AddComponent<TextMeshProUGUI>();
         tmp.text = text;
@@ -277,6 +342,25 @@ public class StartScreenUI : MonoBehaviour
         tmp.fontStyle = style;
         tmp.color = color;
         tmp.alignment = TextAlignmentOptions.Center;
+        tmp.raycastTarget = false; // Never block clicks!
+    }
+
+    private void CreateButtonLabel(Transform parent, string text, float size, FontStyles style, Color color)
+    {
+        GameObject txtObj = new GameObject("Label_" + text);
+        txtObj.transform.SetParent(parent, false);
+        RectTransform rt = txtObj.AddComponent<RectTransform>();
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.sizeDelta = Vector2.zero; // Perfectly fit parent button
+
+        TextMeshProUGUI tmp = txtObj.AddComponent<TextMeshProUGUI>();
+        tmp.text = text;
+        tmp.fontSize = size;
+        tmp.fontStyle = style;
+        tmp.color = color;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.raycastTarget = false; // Strictly let clicks pass through to parent button!
     }
 
     private void LaunchGame()
