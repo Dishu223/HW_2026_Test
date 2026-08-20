@@ -2,17 +2,17 @@
 using UnityEngine;
 
 /// <summary>
-/// Controls the clean, compact 3D crumbling shatter effect:
-/// - 3x3 grid of 9 neat, thin floor tile shards (no clutter or giant beams)
-/// - Gently separates and tumbles downwards with gravity
-/// - Reassembles smoothly during Time Rewind
+/// Organic Randomized Platform Shatter Effect:
+/// - Generates a bespoke cluster of 8-14 randomized irregular tile shards per platform
+/// - Varied shard sizes, shapes, and angles for organic broken-stone look
+/// - Radial wave crumble (center collapses, corners tumble outward)
+/// - Reassembles seamlessly during Time Rewind
 /// </summary>
 public class PlatformShatterFX : MonoBehaviour
 {
-    [Header("Shatter Physics")]
-    [SerializeField] private int gridSubdivisions = 3; // 3x3 = 9 neat, distinct tile pieces
-    [SerializeField] private float separationForce = 12f;
-    [SerializeField] private float randomTorqueAmount = 5f;
+    [Header("Shatter Dynamics")]
+    [SerializeField] private float minSeparationForce = 8f;
+    [SerializeField] private float maxSeparationForce = 18f;
 
     private struct DebrisShard
     {
@@ -22,6 +22,8 @@ public class PlatformShatterFX : MonoBehaviour
         public MeshRenderer renderer;
         public Vector3 initialLocalPos;
         public Quaternion initialLocalRot;
+        public Vector3 initialLocalScale;
+        public float delayOffset;
         public LinkedList<DebrisSnapshot> snapshotHistory;
     }
 
@@ -43,7 +45,7 @@ public class PlatformShatterFX : MonoBehaviour
 
     private void Awake()
     {
-        GenerateProceduralShards();
+        GenerateOrganicRandomizedShards();
     }
 
     private void OnEnable()
@@ -58,57 +60,70 @@ public class PlatformShatterFX : MonoBehaviour
         GameEvents.OnRewindComplete -= HandleRewindComplete;
     }
 
-    private void GenerateProceduralShards()
+    /// <summary>
+    /// Generates a randomized cluster of 8-14 irregular stone/tile shards with varied shapes and positions.
+    /// </summary>
+    private void GenerateOrganicRandomizedShards()
     {
         if (shards.Count > 0) return;
 
-        float shardSizeX = 1f / gridSubdivisions;
-        float shardSizeZ = 1f / gridSubdivisions;
+        // Choose random shard count between 9 and 13 for each unique platform
+        int shardCount = Random.Range(9, 14);
 
-        for (int x = 0; x < gridSubdivisions; x++)
+        for (int i = 0; i < shardCount; i++)
         {
-            for (int z = 0; z < gridSubdivisions; z++)
+            // Organic scatter across the platform surface
+            float angle = (i / (float)shardCount) * Mathf.PI * 2f + Random.Range(-0.3f, 0.3f);
+            float radius = (i == 0) ? 0f : Random.Range(0.15f, 0.42f);
+
+            float localX = Mathf.Cos(angle) * radius;
+            float localZ = Mathf.Sin(angle) * radius;
+            Vector3 localPos = new Vector3(localX, 0f, localZ);
+
+            GameObject shardObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            shardObj.name = $"OrganicShard_{i}";
+            shardObj.transform.SetParent(transform, false);
+            shardObj.transform.localPosition = localPos;
+
+            // Randomized organic rotation & scale
+            Quaternion localRot = Quaternion.Euler(0f, Random.Range(0f, 90f), 0f);
+            shardObj.transform.localRotation = localRot;
+
+            float sizeX = Random.Range(0.20f, 0.36f);
+            float sizeZ = Random.Range(0.20f, 0.36f);
+            float height = Random.Range(0.35f, 0.55f);
+            Vector3 localScale = new Vector3(sizeX, height, sizeZ);
+            shardObj.transform.localScale = localScale;
+
+            Rigidbody rb = shardObj.GetComponent<Rigidbody>();
+            if (rb == null) rb = shardObj.AddComponent<Rigidbody>();
+            rb.mass = Random.Range(0.12f, 0.22f);
+            rb.linearDamping = Random.Range(0.5f, 0.8f);
+            rb.angularDamping = Random.Range(0.6f, 1.2f);
+            rb.isKinematic = true;
+            rb.useGravity = false;
+
+            Collider col = shardObj.GetComponent<Collider>();
+            if (col != null) col.enabled = false;
+
+            MeshRenderer mr = shardObj.GetComponent<MeshRenderer>();
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+
+            DebrisShard shard = new DebrisShard
             {
-                float localX = -0.5f + (x + 0.5f) * shardSizeX;
-                float localZ = -0.5f + (z + 0.5f) * shardSizeZ;
-                Vector3 localPos = new Vector3(localX, 0f, localZ);
+                gameObject = shardObj,
+                transform = shardObj.transform,
+                rigidbody = rb,
+                renderer = mr,
+                initialLocalPos = localPos,
+                initialLocalRot = localRot,
+                initialLocalScale = localScale,
+                delayOffset = radius * 0.12f, // Ripple collapse from center outward
+                snapshotHistory = new LinkedList<DebrisSnapshot>()
+            };
 
-                GameObject shardObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                shardObj.name = $"TileShard_{x}_{z}";
-                shardObj.transform.SetParent(transform, false);
-                shardObj.transform.localPosition = localPos;
-
-                // Thin, compact, lightweight tile dimensions
-                shardObj.transform.localScale = new Vector3(shardSizeX * 0.70f, 0.40f, shardSizeZ * 0.70f);
-
-                Rigidbody rb = shardObj.GetComponent<Rigidbody>();
-                if (rb == null) rb = shardObj.AddComponent<Rigidbody>();
-                rb.mass = 0.15f;
-                rb.linearDamping = 0.6f;
-                rb.angularDamping = 0.8f;
-                rb.isKinematic = true;
-                rb.useGravity = false;
-
-                Collider col = shardObj.GetComponent<Collider>();
-                if (col != null) col.enabled = false;
-
-                MeshRenderer mr = shardObj.GetComponent<MeshRenderer>();
-                mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-
-                DebrisShard shard = new DebrisShard
-                {
-                    gameObject = shardObj,
-                    transform = shardObj.transform,
-                    rigidbody = rb,
-                    renderer = mr,
-                    initialLocalPos = localPos,
-                    initialLocalRot = Quaternion.identity,
-                    snapshotHistory = new LinkedList<DebrisSnapshot>()
-                };
-
-                shardObj.SetActive(false);
-                shards.Add(shard);
-            }
+            shardObj.SetActive(false);
+            shards.Add(shard);
         }
     }
 
@@ -126,19 +141,34 @@ public class PlatformShatterFX : MonoBehaviour
             shard.transform.localPosition = shard.initialLocalPos;
             shard.transform.localRotation = shard.initialLocalRot;
 
+            // Subtle shade variation on each piece for gorgeous depth
             if (shard.renderer != null && sharedMaterial != null)
             {
                 shard.renderer.material = sharedMaterial;
-                shard.renderer.material.color = platformColor;
+                float shadeJitter = Random.Range(0.88f, 1.08f);
+                Color pieceColor = new Color(
+                    Mathf.Clamp01(platformColor.r * shadeJitter),
+                    Mathf.Clamp01(platformColor.g * shadeJitter),
+                    Mathf.Clamp01(platformColor.b * shadeJitter),
+                    platformColor.a
+                );
+                shard.renderer.material.color = pieceColor;
             }
 
             shard.rigidbody.isKinematic = false;
             shard.rigidbody.useGravity = true;
 
-            // Gentle natural outward crumble
-            Vector3 pushDirection = new Vector3(shard.initialLocalPos.x * 1.5f, -0.4f, shard.initialLocalPos.z * 1.5f).normalized;
-            shard.rigidbody.linearVelocity = pushDirection * separationForce * 0.3f;
-            shard.rigidbody.AddTorque(Random.insideUnitSphere * randomTorqueAmount, ForceMode.Impulse);
+            // Organic outward radial tumble
+            float distFromCenter = shard.initialLocalPos.magnitude;
+            Vector3 pushDir = new Vector3(
+                shard.initialLocalPos.x * 2f + Random.Range(-0.3f, 0.3f),
+                -0.4f - shard.delayOffset,
+                shard.initialLocalPos.z * 2f + Random.Range(-0.3f, 0.3f)
+            ).normalized;
+
+            float force = Random.Range(minSeparationForce, maxSeparationForce) * (0.8f + distFromCenter);
+            shard.rigidbody.linearVelocity = pushDir * force * 0.25f;
+            shard.rigidbody.AddTorque(Random.insideUnitSphere * Random.Range(4f, 12f), ForceMode.Impulse);
         }
     }
 
