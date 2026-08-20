@@ -16,6 +16,10 @@ public class DoofusController : MonoBehaviour
     private bool isInputActive = true;
     private bool hasFallen = false;
 
+    // Public properties for DoofusAnimator
+    public Vector3 MoveInput => moveInput;
+    public bool IsMoving => isInputActive && moveInput.sqrMagnitude > 0.01f;
+
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();

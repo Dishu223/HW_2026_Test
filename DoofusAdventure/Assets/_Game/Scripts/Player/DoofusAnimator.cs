@@ -2,9 +2,9 @@
 using UnityEngine;
 
 /// <summary>
-/// Procedural animation controller for Doofus (Snowman character).
-/// Handles movement rotation/lean, springy head bobble, landing squash & stretch,
-/// idle breathing bounce, and expressive eye reactions based on platform timer.
+/// Exaggerated cartoon procedural animation controller for Doofus.
+/// Creates hypercasual juicy movement: snappy direction turning, exaggerated body leaning,
+/// trailing bobblehead lag, squash & stretch, and dynamic eye expressions.
 /// </summary>
 public class DoofusAnimator : MonoBehaviour
 {
@@ -14,21 +14,22 @@ public class DoofusAnimator : MonoBehaviour
     [SerializeField] private Transform leftEyeTransform;
     [SerializeField] private Transform rightEyeTransform;
 
-    [Header("Movement & Rotation")]
-    [SerializeField] private float turnSpeed = 14f;
-    [SerializeField] private float maxLeanAngle = 15f;
-    [SerializeField] private float leanSmoothSpeed = 12f;
-    [SerializeField] private float headLagSpeed = 14f;
+    [Header("Hypercasual Movement Tuning")]
+    [SerializeField] private float turnSpeed = 22f;          // Snappy fast turning
+    [SerializeField] private float maxLeanAngle = 28f;       // Exaggerated cartoon lean
+    [SerializeField] private float leanSmoothSpeed = 16f;    // Snappy lean responsiveness
+    [SerializeField] private float headLagDistance = 0.28f;  // Head pulls visibly backward
+    [SerializeField] private float headSpringTime = 0.08f;   // Spring elasticity
 
     [Header("Idle Breathing")]
-    [SerializeField] private float idleBounceSpeed = 3.5f;
+    [SerializeField] private float idleBounceSpeed = 4.5f;
     [SerializeField] private float idleBounceHeight = 0.05f;
 
     [Header("Squash & Stretch")]
-    [SerializeField] private float squashAmount = 0.8f;
-    [SerializeField] private float squashDuration = 0.25f;
+    [SerializeField] private float squashAmount = 0.72f;
+    [SerializeField] private float squashDuration = 0.22f;
 
-    private Rigidbody rb;
+    private DoofusController controller;
     private Vector3 defaultBodyLocalPos;
     private Vector3 defaultHeadLocalPos;
     private Vector3 defaultEyeScale;
@@ -38,7 +39,7 @@ public class DoofusAnimator : MonoBehaviour
 
     private void Awake()
     {
-        rb = GetComponentInParent<Rigidbody>();
+        controller = GetComponent<DoofusController>();
 
         if (bodyTransform != null)
             defaultBodyLocalPos = bodyTransform.localPosition;
@@ -81,58 +82,72 @@ public class DoofusAnimator : MonoBehaviour
         }
 
         ApplyMovementRotationAndLean();
-        ApplyHeadBobble();
+        ApplyHeadBobbleAndLag();
         ApplyIdleBounce();
     }
 
     /// <summary>
-    /// Smoothly rotates Doofus to face travel direction and applies cartoon lean.
+    /// Snappily rotates Doofus to face travel direction and applies exaggerated cartoon lean.
     /// </summary>
     private void ApplyMovementRotationAndLean()
     {
-        if (rb == null) return;
+        Vector3 moveInput = controller != null ? controller.MoveInput : Vector3.zero;
+        bool isMoving = moveInput.sqrMagnitude > 0.01f;
 
-        Vector3 horizontalVel = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
-        float speed = horizontalVel.magnitude;
-
-        // 1. Rotate whole character towards movement direction
-        if (speed > 0.1f)
+        // 1. Snappy rotation towards travel direction
+        if (isMoving)
         {
-            Quaternion targetLookRotation = Quaternion.LookRotation(horizontalVel.normalized, Vector3.up);
+            Quaternion targetLookRotation = Quaternion.LookRotation(moveInput, Vector3.up);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetLookRotation, Time.deltaTime * turnSpeed);
         }
 
-        // 2. Lean body slightly into / opposite movement
+        // 2. Exaggerated body lean (tilts backward from travel direction for cartoon inertia)
         if (bodyTransform != null)
         {
             Quaternion targetLean = Quaternion.identity;
-            if (speed > 0.1f)
+            if (isMoving)
             {
-                Vector3 tiltAxis = Vector3.Cross(Vector3.up, horizontalVel.normalized);
-                targetLean = Quaternion.AngleAxis(-maxLeanAngle * Mathf.Clamp01(speed / 3f), tiltAxis);
+                // Tilt backward relative to current forward direction
+                targetLean = Quaternion.Euler(maxLeanAngle, 0f, 0f);
             }
+
             bodyTransform.localRotation = Quaternion.Slerp(bodyTransform.localRotation, targetLean, Time.deltaTime * leanSmoothSpeed);
         }
     }
 
     /// <summary>
-    /// Spring physics on head following the body motion.
+    /// Head pulls backward in local space when moving and bobbles back when stopping.
     /// </summary>
-    private void ApplyHeadBobble()
+    private void ApplyHeadBobbleAndLag()
     {
         if (headTransform == null) return;
-        headTransform.localPosition = Vector3.SmoothDamp(headTransform.localPosition, defaultHeadLocalPos, ref headVelocity, 1f / headLagSpeed);
+
+        Vector3 moveInput = controller != null ? controller.MoveInput : Vector3.zero;
+        bool isMoving = moveInput.sqrMagnitude > 0.01f;
+
+        // When moving, pull head backwards on local Z axis
+        Vector3 targetHeadPos = defaultHeadLocalPos;
+        if (isMoving)
+        {
+            targetHeadPos = defaultHeadLocalPos + new Vector3(0f, -0.05f, -headLagDistance);
+        }
+
+        headTransform.localPosition = Vector3.SmoothDamp(headTransform.localPosition, targetHeadPos, ref headVelocity, headSpringTime);
     }
 
     /// <summary>
-    /// Subtle breathing bounce preserving body position.
+    /// Lively breathing bounce preserving body connection.
     /// </summary>
     private void ApplyIdleBounce()
     {
         if (bodyTransform == null) return;
 
-        float bounce = Mathf.Sin(Time.time * idleBounceSpeed) * idleBounceHeight;
-        bodyTransform.localPosition = defaultBodyLocalPos + new Vector3(0f, bounce, 0f);
+        // Only bounce when stationary
+        bool isMoving = controller != null && controller.IsMoving;
+        float targetBounce = isMoving ? 0f : Mathf.Sin(Time.time * idleBounceSpeed) * idleBounceHeight;
+
+        Vector3 targetPos = defaultBodyLocalPos + new Vector3(0f, targetBounce, 0f);
+        bodyTransform.localPosition = Vector3.Lerp(bodyTransform.localPosition, targetPos, Time.deltaTime * 10f);
     }
 
     private void TriggerLandSquash()
@@ -146,7 +161,7 @@ public class DoofusAnimator : MonoBehaviour
     private IEnumerator SquashAndStretchCoroutine()
     {
         Vector3 originalScale = Vector3.one;
-        Vector3 squashedScale = new Vector3(1.25f, squashAmount, 1.25f);
+        Vector3 squashedScale = new Vector3(1.3f, squashAmount, 1.3f);
         float halfDuration = squashDuration / 2f;
 
         float elapsed = 0f;
@@ -176,23 +191,23 @@ public class DoofusAnimator : MonoBehaviour
 
         if (normalizedTime < 0.25f)
         {
-            // Panicked state: eyes bulge huge and shake!
-            scaleMultiplier = 1.7f + Mathf.Sin(Time.time * 25f) * 0.15f;
+            // Panicked state: huge bulging eyes with vibration
+            scaleMultiplier = 1.75f + Mathf.Sin(Time.time * 30f) * 0.2f;
         }
         else if (normalizedTime < 0.5f)
         {
             // Worried state
-            scaleMultiplier = 1.3f;
+            scaleMultiplier = 1.35f;
         }
         else
         {
-            // Happy normal
+            // Happy relaxed state
             scaleMultiplier = 1f;
         }
 
         Vector3 targetScale = defaultEyeScale * scaleMultiplier;
-        leftEyeTransform.localScale = Vector3.Lerp(leftEyeTransform.localScale, targetScale, Time.deltaTime * 10f);
-        rightEyeTransform.localScale = Vector3.Lerp(rightEyeTransform.localScale, targetScale, Time.deltaTime * 10f);
+        leftEyeTransform.localScale = Vector3.Lerp(leftEyeTransform.localScale, targetScale, Time.deltaTime * 12f);
+        rightEyeTransform.localScale = Vector3.Lerp(rightEyeTransform.localScale, targetScale, Time.deltaTime * 12f);
     }
 
     private void HandleDoofusFell()
@@ -205,7 +220,7 @@ public class DoofusAnimator : MonoBehaviour
 
     private void ApplyFallingTumble()
     {
-        transform.Rotate(new Vector3(180f, 90f, 45f) * Time.deltaTime, Space.Self);
+        transform.Rotate(new Vector3(220f, 120f, 60f) * Time.deltaTime, Space.Self);
     }
 
     private void HandleGameStart()
