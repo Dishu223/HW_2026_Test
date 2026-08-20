@@ -2,7 +2,7 @@
 
 /// <summary>
 /// Central Game State Machine and Coordinator.
-/// Ensures all managers (ScoreManager, VFXManager, RewindManager) are active and synchronized.
+/// Ensures all managers (ScoreManager, SoundManager, VFXManager, RewindManager) are active and synchronized.
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -33,11 +33,18 @@ public class GameManager : MonoBehaviour
         }
         Instance = this;
 
-        // Auto-instantiate VFXManager if not present in the scene
+        // Auto-instantiate VFXManager
         if (FindAnyObjectByType<VFXManager>() == null)
         {
             GameObject vfxObj = new GameObject("VFXManager");
             vfxObj.AddComponent<VFXManager>();
+        }
+
+        // Auto-instantiate SoundManager
+        if (FindAnyObjectByType<SoundManager>() == null)
+        {
+            GameObject soundObj = new GameObject("SoundManager");
+            soundObj.AddComponent<SoundManager>();
         }
     }
 

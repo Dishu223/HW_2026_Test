@@ -2,15 +2,14 @@
 using UnityEngine;
 
 /// <summary>
-/// Tiny & Cute 3D Cartoon Dust Puff Engine:
-/// - Tiny, delicate cartoon dust puffs popping under Doofus''s heels
-/// - Soft float and quick playful dissipate
-/// - Mini skid brake burst
+/// 3D Cartoon Dust Puff & Footstep Audio Engine:
+/// - Spawns delicate cartoon dust puffs
+/// - Plays dynamic footstep audio taps via SoundManager
 /// </summary>
 public class DoofusLocomotionVFX : MonoBehaviour
 {
     [Header("Locomotion Tuning")]
-    [SerializeField] private float stepInterval = 0.12f;
+    [SerializeField] private float stepInterval = 0.14f;
 
     private class ActivePuff
     {
@@ -44,7 +43,6 @@ public class DoofusLocomotionVFX : MonoBehaviour
         else
             sharedPuffMaterial.color = new Color(0.96f, 0.96f, 1f, 0.85f);
 
-        // Pre-warm pool of 20 mini dust spheres
         for (int i = 0; i < 20; i++)
         {
             GameObject puffObj = CreatePuffObject();
@@ -56,7 +54,7 @@ public class DoofusLocomotionVFX : MonoBehaviour
     private GameObject CreatePuffObject()
     {
         GameObject puffObj = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        puffObj.name = "Tiny_Cartoon_Puff";
+        puffObj.name = "Cartoon_Puff";
 
         Collider col = puffObj.GetComponent<Collider>();
         if (col != null) Destroy(col);
@@ -86,7 +84,13 @@ public class DoofusLocomotionVFX : MonoBehaviour
             if (stepTimer >= stepInterval)
             {
                 stepTimer = 0f;
-                SpawnTinyRunningPuff();
+                SpawnRunningPuff();
+
+                // Trigger footstep sound!
+                if (SoundManager.Instance != null)
+                {
+                    SoundManager.Instance.PlayFootstep();
+                }
             }
         }
         else
@@ -96,13 +100,13 @@ public class DoofusLocomotionVFX : MonoBehaviour
 
         if (wasMovingLastFrame && !isMoving)
         {
-            SpawnTinySkidPuffs();
+            SpawnSkidPuffs();
         }
 
         wasMovingLastFrame = isMoving;
     }
 
-    private void SpawnTinyRunningPuff()
+    private void SpawnRunningPuff()
     {
         GameObject puff = GetPuffFromPool();
         if (puff == null) return;
@@ -114,7 +118,7 @@ public class DoofusLocomotionVFX : MonoBehaviour
         Vector3 lateralOffset = transform.right * sideOffset;
         Vector3 spawnPos = new Vector3(
             transform.position.x + forwardOffset.x + lateralOffset.x,
-            0.29f, // Resting lightly on platform top (Y = 0.25m)
+            0.29f,
             transform.position.z + forwardOffset.z + lateralOffset.z
         );
 
@@ -123,7 +127,7 @@ public class DoofusLocomotionVFX : MonoBehaviour
         puff.SetActive(true);
 
         Vector3 vel = forwardOffset.normalized * 0.4f + Vector3.up * Random.Range(0.4f, 0.7f);
-        float targetSize = Random.Range(0.16f, 0.24f); // Tiny & cute!
+        float targetSize = Random.Range(0.16f, 0.24f);
 
         activePuffs.Add(new ActivePuff
         {
@@ -132,11 +136,11 @@ public class DoofusLocomotionVFX : MonoBehaviour
             initialScale = Vector3.one * targetSize,
             velocity = vel,
             lifetime = 0f,
-            maxLifetime = 0.20f // Quick cute pop & dissipate
+            maxLifetime = 0.20f
         });
     }
 
-    private void SpawnTinySkidPuffs()
+    private void SpawnSkidPuffs()
     {
         for (int i = 0; i < 4; i++)
         {
