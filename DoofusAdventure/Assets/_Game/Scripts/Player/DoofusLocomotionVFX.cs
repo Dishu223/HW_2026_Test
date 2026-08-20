@@ -1,20 +1,18 @@
 ﻿using UnityEngine;
 
 /// <summary>
-/// Spawns high-visibility cartoon dust puffs strictly on top of platforms:
-/// - Filters out Doofus colliders from raycasts so it always detects the true platform surface
-/// - Elevates particles 15cm above tile with upward drift and high render queue
-/// - Generates skid brake dust clouds on abrupt stops
+/// High-visibility cartoon locomotion dust puffs for Doofus:
+/// - Uses explicit world-space EmitParams at Y = 0.38f (directly above the Y = 0.25f platform surface)
+/// - Upward expanding billow puffs with zero raycast or clipping issues
 /// </summary>
 public class DoofusLocomotionVFX : MonoBehaviour
 {
     [Header("Locomotion Tuning")]
-    [SerializeField] private float stepInterval = 0.18f;
+    [SerializeField] private float stepInterval = 0.16f;
 
     private DoofusController controller;
     private Rigidbody rb;
-    private ParticleSystem footstepDustPS;
-    private ParticleSystem skidDustPS;
+    private ParticleSystem dustPS;
     private float stepTimer = 0f;
     private Vector3 lastVelocity = Vector3.zero;
 
@@ -23,86 +21,58 @@ public class DoofusLocomotionVFX : MonoBehaviour
         controller = GetComponent<DoofusController>();
         rb = GetComponent<Rigidbody>();
 
-        BuildFootstepParticleSystems();
+        BuildUniversalDustParticleSystem();
     }
 
-    private void BuildFootstepParticleSystems()
+    private void BuildUniversalDustParticleSystem()
     {
-        Shader particleShader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
-        if (particleShader == null) particleShader = Shader.Find("Particles/Standard Unlit");
-        if (particleShader == null) particleShader = Shader.Find("Sprites/Default");
-        Material mat = new Material(particleShader);
-        mat.renderQueue = 3100; // Render on top of opaque platform geometry!
+        GameObject psObj = new GameObject("Doofus_UniversalDust_PS");
+        dustPS = psObj.AddComponent<ParticleSystem>();
 
-        // 1. High-Visibility Footstep Dust Puffs
-        GameObject footObj = new GameObject("Doofus_FootstepDust_PS");
-        footstepDustPS = footObj.AddComponent<ParticleSystem>();
-        var footRenderer = footObj.GetComponent<ParticleSystemRenderer>();
-        if (footRenderer != null)
+        // Find standard reliable unlit shader
+        Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
+        if (shader == null) shader = Shader.Find("Sprites/Default");
+        if (shader == null) shader = Shader.Find("Unlit/Color");
+
+        Material mat = new Material(shader);
+        if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", new Color(1f, 1f, 1f, 0.90f));
+        else mat.color = new Color(1f, 1f, 1f, 0.90f);
+
+        ParticleSystemRenderer psr = psObj.GetComponent<ParticleSystemRenderer>();
+        if (psr != null)
         {
-            footRenderer.material = mat;
-            footRenderer.sortingOrder = 10;
+            psr.material = mat;
+            psr.renderMode = ParticleSystemRenderMode.Billboard;
+            psr.sortingOrder = 50; // Highest sorting order
         }
 
-        var main = footstepDustPS.main;
+        var main = dustPS.main;
         main.playOnAwake = false;
         main.loop = false;
-        main.maxParticles = 50;
-        main.startLifetime = 0.35f;
-        main.startSize = 0.45f; // Bigger, visible cartoon puffs!
-        main.startSpeed = 1.2f;
-        main.startColor = new Color(1f, 1f, 1f, 0.85f); // High visibility crisp white
+        main.maxParticles = 80;
+        main.startLifetime = 0.32f;
+        main.startSize = 0.40f;
         main.simulationSpace = ParticleSystemSimulationSpace.World;
 
-        var emission = footstepDustPS.emission;
+        var emission = dustPS.emission;
         emission.rateOverTime = 0;
 
-        var shape = footstepDustPS.shape;
-        shape.shapeType = ParticleSystemShapeType.Sphere;
-        shape.radius = 0.2f;
-
-        var sizeOverLifetime = footstepDustPS.sizeOverLifetime;
+        var sizeOverLifetime = dustPS.sizeOverLifetime;
         sizeOverLifetime.enabled = true;
         AnimationCurve curve = new AnimationCurve();
-        curve.AddKey(0f, 0.5f);
-        curve.AddKey(0.3f, 1.2f); // Pop expand
-        curve.AddKey(1f, 0f);     // Dissipate
+        curve.AddKey(0f, 0.4f);
+        curve.AddKey(0.25f, 1.2f);
+        curve.AddKey(1f, 0f);
         sizeOverLifetime.size = new ParticleSystem.MinMaxCurve(1f, curve);
 
-        var velocityOverLifetime = footstepDustPS.velocityOverLifetime;
-        velocityOverLifetime.enabled = true;
-        velocityOverLifetime.y = new ParticleSystem.MinMaxCurve(0.8f); // Upward float above floor
-
-        // 2. High-Visibility Skid Brake Dust
-        GameObject skidObj = new GameObject("Doofus_SkidDust_PS");
-        skidDustPS = skidObj.AddComponent<ParticleSystem>();
-        var skidRenderer = skidObj.GetComponent<ParticleSystemRenderer>();
-        if (skidRenderer != null)
-        {
-            skidRenderer.material = mat;
-            skidRenderer.sortingOrder = 10;
-        }
-
-        var skidMain = skidDustPS.main;
-        skidMain.playOnAwake = false;
-        skidMain.loop = false;
-        skidMain.maxParticles = 50;
-        skidMain.startLifetime = 0.40f;
-        skidMain.startSize = 0.55f;
-        skidMain.startSpeed = 2.0f;
-        skidMain.startColor = new Color(1f, 1f, 1f, 0.90f);
-        skidMain.simulationSpace = ParticleSystemSimulationSpace.World;
-
-        var skidEmission = skidDustPS.emission;
-        skidEmission.rateOverTime = 0;
-
-        var skidSize = skidDustPS.sizeOverLifetime;
-        skidSize.enabled = true;
-        skidSize.size = new ParticleSystem.MinMaxCurve(1f, curve);
-
-        var skidVel = skidDustPS.velocityOverLifetime;
-        skidVel.enabled = true;
-        skidVel.y = new ParticleSystem.MinMaxCurve(1.2f);
+        var colorOverLifetime = dustPS.colorOverLifetime;
+        colorOverLifetime.enabled = true;
+        Gradient grad = new Gradient();
+        grad.SetKeys(
+            new GradientColorKey[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(new Color(0.9f, 0.95f, 1f), 1f) },
+            new GradientAlphaKey[] { new GradientAlphaKey(0.90f, 0f), new GradientAlphaKey(0f, 1f) }
+        );
+        colorOverLifetime.color = grad;
     }
 
     private void Update()
@@ -119,7 +89,7 @@ public class DoofusLocomotionVFX : MonoBehaviour
             if (stepTimer >= stepInterval)
             {
                 stepTimer = 0f;
-                EmitFootstepDust();
+                EmitRunningPuff();
             }
         }
         else
@@ -127,58 +97,58 @@ public class DoofusLocomotionVFX : MonoBehaviour
             stepTimer = stepInterval;
         }
 
-        // Detect abrupt brake
+        // Skid brake puff
         float velDrop = (lastVelocity - currentVel).magnitude;
-        if (velDrop > 3.0f && lastVelocity.sqrMagnitude > 1.5f)
+        if (velDrop > 2.5f && lastVelocity.sqrMagnitude > 1.2f)
         {
-            EmitSkidDust();
+            EmitSkidPuff();
         }
 
         lastVelocity = currentVel;
     }
 
-    /// <summary>
-    /// Performs non-self raycasting to accurately find the platform top surface.
-    /// </summary>
-    private Vector3 GetPlatformSurfacePoint()
+    private void EmitRunningPuff()
     {
-        Ray ray = new Ray(transform.position + Vector3.up * 0.5f, Vector3.down);
-        RaycastHit[] hits = Physics.RaycastAll(ray, 3.0f);
+        if (dustPS == null) return;
 
-        foreach (RaycastHit hit in hits)
+        // Platform top is at Y = 0.25 -> Emit at Y = 0.38f (clearly in air right behind feet!)
+        Vector3 spawnCenter = new Vector3(transform.position.x, 0.38f, transform.position.z);
+        Vector3 backwardDir = -transform.forward * 0.25f;
+
+        for (int i = 0; i < 2; i++)
         {
-            // Ignore Doofus himself and child colliders
-            if (hit.collider.gameObject != gameObject && !hit.collider.transform.IsChildOf(transform))
-            {
-                return hit.point + Vector3.up * 0.18f; // Elevated 18cm above tile face!
-            }
-        }
-
-        // Fallback: top of platform is standard Y = 0.25 -> spawn at Y = 0.40
-        return new Vector3(transform.position.x, 0.40f, transform.position.z);
-    }
-
-    private void EmitFootstepDust()
-    {
-        if (footstepDustPS != null)
-        {
-            footstepDustPS.transform.position = GetPlatformSurfacePoint();
-            footstepDustPS.Emit(4);
+            ParticleSystem.EmitParams emitParams = new ParticleSystem.EmitParams();
+            Vector3 offset = new Vector3(Random.Range(-0.15f, 0.15f), Random.Range(0f, 0.08f), Random.Range(-0.15f, 0.15f));
+            emitParams.position = spawnCenter + backwardDir + offset;
+            emitParams.startSize = Random.Range(0.35f, 0.50f);
+            emitParams.startLifetime = Random.Range(0.28f, 0.38f);
+            emitParams.velocity = new Vector3(Random.Range(-0.2f, 0.2f), Random.Range(0.6f, 1.2f), Random.Range(-0.2f, 0.2f));
+            dustPS.Emit(emitParams, 1);
         }
     }
 
-    private void EmitSkidDust()
+    private void EmitSkidPuff()
     {
-        if (skidDustPS != null)
+        if (dustPS == null) return;
+
+        Vector3 spawnCenter = new Vector3(transform.position.x, 0.38f, transform.position.z);
+
+        for (int i = 0; i < 6; i++)
         {
-            skidDustPS.transform.position = GetPlatformSurfacePoint();
-            skidDustPS.Emit(14);
+            ParticleSystem.EmitParams emitParams = new ParticleSystem.EmitParams();
+            Vector3 randomDir = Random.insideUnitSphere * 0.3f;
+            randomDir.y = Mathf.Abs(randomDir.y) + 0.1f;
+
+            emitParams.position = spawnCenter + new Vector3(randomDir.x, 0f, randomDir.z);
+            emitParams.startSize = Random.Range(0.45f, 0.65f);
+            emitParams.startLifetime = Random.Range(0.35f, 0.48f);
+            emitParams.velocity = new Vector3(randomDir.x * 2.5f, Random.Range(1.0f, 1.8f), randomDir.z * 2.5f);
+            dustPS.Emit(emitParams, 1);
         }
     }
 
     private void OnDestroy()
     {
-        if (footstepDustPS != null) Destroy(footstepDustPS.gameObject);
-        if (skidDustPS != null) Destroy(skidDustPS.gameObject);
+        if (dustPS != null) Destroy(dustPS.gameObject);
     }
 }
