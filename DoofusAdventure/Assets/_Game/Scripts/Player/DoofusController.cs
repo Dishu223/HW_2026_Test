@@ -3,7 +3,7 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// Controls Doofus physics-based movement using Unity's New Input System.
-/// Movement speed is fetched dynamically from GameConfig (loaded from JSON).
+/// Handles position reset on restart and respects game states.
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
 public class DoofusController : MonoBehaviour
@@ -13,18 +13,15 @@ public class DoofusController : MonoBehaviour
 
     private Rigidbody rb;
     private Vector3 moveInput;
-    private bool isInputActive = true;
+    private bool isInputActive = false; // Disabled until game starts!
     private bool hasFallen = false;
 
-    // Public properties for DoofusAnimator
     public Vector3 MoveInput => moveInput;
     public bool IsMoving => isInputActive && moveInput.sqrMagnitude > 0.01f;
 
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
-
-        // Lock rotations so Doofus slides upright without tumbling over
         rb.freezeRotation = true;
         rb.useGravity = true;
     }
@@ -33,16 +30,20 @@ public class DoofusController : MonoBehaviour
     {
         GameEvents.OnGameStart += HandleGameStart;
         GameEvents.OnGameOver += HandleGameOver;
+        GameEvents.OnGameRestart += HandleGameStart;
         GameEvents.OnRewindStart += HandleRewindStart;
         GameEvents.OnRewindComplete += HandleRewindComplete;
+        GameEvents.OnReturnToLobby += HandleReturnToLobby;
     }
 
     private void OnDisable()
     {
         GameEvents.OnGameStart -= HandleGameStart;
         GameEvents.OnGameOver -= HandleGameOver;
+        GameEvents.OnGameRestart -= HandleGameStart;
         GameEvents.OnRewindStart -= HandleRewindStart;
         GameEvents.OnRewindComplete -= HandleRewindComplete;
+        GameEvents.OnReturnToLobby -= HandleReturnToLobby;
     }
 
     private void Update()
@@ -53,10 +54,8 @@ public class DoofusController : MonoBehaviour
             return;
         }
 
-        // Read input using Unity 6 New Input System
         moveInput = ReadKeyboardInput();
 
-        // Check if Doofus fell below the threshold
         if (!hasFallen && transform.position.y < fallThresholdY)
         {
             hasFallen = true;
@@ -68,18 +67,11 @@ public class DoofusController : MonoBehaviour
     {
         if (!isInputActive || moveInput == Vector3.zero) return;
 
-        // Fetch speed from GameConfig (loaded from JSON) with fallback
         float speed = GameConfig.Instance != null ? GameConfig.Instance.PlayerSpeed : 3f;
-
-        // Move physics body smoothly using MovePosition
         Vector3 targetPosition = rb.position + moveInput * speed * Time.fixedDeltaTime;
         rb.MovePosition(targetPosition);
     }
 
-    /// <summary>
-    /// Reads WASD and Arrow key input directly via UnityEngine.InputSystem.Keyboard.
-    /// Normalizes diagonal movement so diagonal speed matches cardinal speed.
-    /// </summary>
     private Vector3 ReadKeyboardInput()
     {
         Keyboard keyboard = Keyboard.current;
@@ -88,17 +80,12 @@ public class DoofusController : MonoBehaviour
         float horizontal = 0f;
         float vertical = 0f;
 
-        // Forward / Backward (W / S or Up / Down arrows)
         if (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed) vertical += 1f;
         if (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed) vertical -= 1f;
-
-        // Left / Right (A / D or Left / Right arrows)
         if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed) horizontal += 1f;
         if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed) horizontal -= 1f;
 
         Vector3 rawDirection = new Vector3(horizontal, 0f, vertical);
-
-        // Normalize if moving diagonally
         return rawDirection.sqrMagnitude > 1f ? rawDirection.normalized : rawDirection;
     }
 
@@ -107,12 +94,33 @@ public class DoofusController : MonoBehaviour
     {
         isInputActive = true;
         hasFallen = false;
+
+        // Reset Doofus back to center platform
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+            rb.position = new Vector3(0f, 1f, 0f);
+            transform.position = new Vector3(0f, 1f, 0f);
+            transform.rotation = Quaternion.identity;
+        }
     }
 
     private void HandleGameOver()
     {
         isInputActive = false;
         moveInput = Vector3.zero;
+    }
+
+    private void HandleReturnToLobby()
+    {
+        isInputActive = false;
+        moveInput = Vector3.zero;
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector3.zero;
+            rb.position = new Vector3(0f, 1f, 0f);
+        }
     }
 
     private void HandleRewindStart()

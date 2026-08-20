@@ -4,7 +4,7 @@ using UnityEngine;
 
 /// <summary>
 /// Manages spawning and positioning of Pulpit platforms.
-/// Enforces max 2 simultaneous platforms, adjacent grid offsets, and prevents duplicate/backtracking positions.
+/// Spawns platforms only during active gameplay.
 /// </summary>
 public class PulpitManager : MonoBehaviour
 {
@@ -12,7 +12,7 @@ public class PulpitManager : MonoBehaviour
     [SerializeField] private GameObject pulpitPrefab;
 
     [Header("Grid Configuration")]
-    [Tooltip("Size/spacing of platforms. 5 units makes hopping snappy and fast-paced!")]
+    [Tooltip("Platform size/spacing (5 units for fast-paced gameplay)")]
     [SerializeField] private float platformSize = 5f;
 
     private readonly List<GameObject> activePulpits = new List<GameObject>();
@@ -33,6 +33,7 @@ public class PulpitManager : MonoBehaviour
         GameEvents.OnGameStart += StartGameSpawning;
         GameEvents.OnGameRestart += RestartSpawning;
         GameEvents.OnGameOver += StopSpawning;
+        GameEvents.OnReturnToLobby += ClearAllPulpits;
     }
 
     private void OnDisable()
@@ -40,11 +41,21 @@ public class PulpitManager : MonoBehaviour
         GameEvents.OnGameStart -= StartGameSpawning;
         GameEvents.OnGameRestart -= RestartSpawning;
         GameEvents.OnGameOver -= StopSpawning;
+        GameEvents.OnReturnToLobby -= ClearAllPulpits;
     }
 
     private void Start()
     {
-        StartGameSpawning();
+        // If GameManager is in Playing state at startup, spawn; otherwise wait for OnGameStart event
+        if (GameManager.Instance != null && GameManager.Instance.IsPlaying)
+        {
+            StartGameSpawning();
+        }
+        else
+        {
+            // Spawn initial preview platform
+            SpawnPulpitAt(Vector3.zero);
+        }
     }
 
     public void StartGameSpawning()
@@ -83,7 +94,6 @@ public class PulpitManager : MonoBehaviour
 
             activePulpits.RemoveAll(item => item == null);
 
-            // Wait if 2 pulpits are already active
             while (activePulpits.Count >= 2)
             {
                 activePulpits.RemoveAll(item => item == null);
@@ -108,7 +118,6 @@ public class PulpitManager : MonoBehaviour
         }
 
         GameObject newPulpit = Instantiate(pulpitPrefab, position, Quaternion.identity, transform);
-        // Automatically match platform scale to configured platformSize
         newPulpit.transform.localScale = new Vector3(platformSize, 0.5f, platformSize);
 
         activePulpits.Add(newPulpit);
@@ -155,8 +164,9 @@ public class PulpitManager : MonoBehaviour
         return validPositions[randomIndex];
     }
 
-    private void ClearAllPulpits()
+    public void ClearAllPulpits()
     {
+        StopSpawning();
         foreach (GameObject pulpit in activePulpits)
         {
             if (pulpit != null)

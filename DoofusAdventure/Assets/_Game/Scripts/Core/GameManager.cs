@@ -23,8 +23,6 @@ public class GameManager : MonoBehaviour
     public GameState CurrentState => currentState;
     public bool IsPlaying => currentState == GameState.Playing;
 
-    private bool isTransitioning = false;
-
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -39,8 +37,8 @@ public class GameManager : MonoBehaviour
 
     private void Start()
     {
-        // Default directly to Playing during early development/testing
-        SetState(GameState.Playing);
+        // Start game at the Start Screen
+        SetState(GameState.StartScreen);
     }
 
     private void OnEnable()
@@ -67,8 +65,6 @@ public class GameManager : MonoBehaviour
 
     public void SetState(GameState newState)
     {
-        if (currentState == newState && !isTransitioning) return;
-
         currentState = newState;
         Debug.Log($"[GameManager] State changed to: {currentState}");
 
@@ -80,6 +76,7 @@ public class GameManager : MonoBehaviour
 
             case GameState.Lobby:
                 Time.timeScale = 1f;
+                GameEvents.TriggerReturnToLobby();
                 break;
 
             case GameState.Playing:
@@ -88,7 +85,6 @@ public class GameManager : MonoBehaviour
                 break;
 
             case GameState.Rewinding:
-                // Time scale handled dynamically during rewind playback
                 break;
 
             case GameState.GameOver:
@@ -109,8 +105,6 @@ public class GameManager : MonoBehaviour
 
     private void HandleDoofusFell()
     {
-        // When Doofus falls, if rewinds are available we rewind, else Game Over
-        // For now without RewindManager active, transition directly to Game Over
         SetState(GameState.GameOver);
     }
 
