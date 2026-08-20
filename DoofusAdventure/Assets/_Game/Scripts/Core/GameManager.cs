@@ -2,7 +2,7 @@
 
 /// <summary>
 /// Controls overall game lifecycle states:
-/// StartScreen -> Lobby -> Playing -> Rewinding -> GameOver.
+/// StartScreen (paused) -> Playing (unpaused) -> GameOver.
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -33,13 +33,10 @@ public class GameManager : MonoBehaviour
 
         Instance = this;
         DontDestroyOnLoad(gameObject);
-
-        Time.timeScale = 1f;
     }
 
     private void Start()
     {
-        Time.timeScale = 1f;
         SetState(GameState.StartScreen);
     }
 
@@ -59,24 +56,22 @@ public class GameManager : MonoBehaviour
 
     public void SetState(GameState newState)
     {
-        if (currentState == newState) return; // Prevent duplicate transitions
-
         currentState = newState;
         Debug.Log($"[GameManager] State changed to: {currentState}");
 
         switch (currentState)
         {
             case GameState.StartScreen:
-                Time.timeScale = 1f;
+                Time.timeScale = 0f; // Freeze game when on Start Screen!
                 break;
 
             case GameState.Lobby:
-                Time.timeScale = 1f;
+                Time.timeScale = 0f;
                 GameEvents.TriggerReturnToLobby();
                 break;
 
             case GameState.Playing:
-                Time.timeScale = 1f;
+                Time.timeScale = 1f; // Unpause for active gameplay!
                 GameEvents.TriggerGameStart();
                 break;
 

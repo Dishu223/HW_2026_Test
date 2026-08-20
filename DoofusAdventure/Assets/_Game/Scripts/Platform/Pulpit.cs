@@ -2,10 +2,10 @@
 using UnityEngine;
 
 /// <summary>
-/// Controls an individual platform:
-/// - Countdown lifetime that counts down reliably during active gameplay
+/// Controls an individual pulpit platform:
+/// - Counts down lifetime during active gameplay
 /// - Smooth color shift (Green -> Yellow -> Red)
-/// - Single compact countdown text at bottom-left corner with parent scale compensation
+/// - Updates text and color on timerText WITHOUT overriding the user prefab transform or scale!
 /// </summary>
 public class Pulpit : MonoBehaviour
 {
@@ -34,19 +34,6 @@ public class Pulpit : MonoBehaviour
 
         if (timerText == null)
             timerText = GetComponentInChildren<TextMeshPro>();
-
-        // Compensate for parent platform scaling (5, 0.5, 5) so text is not stretched or huge!
-        if (timerText != null)
-        {
-            // Position at bottom-left corner
-            timerText.transform.localPosition = new Vector3(-0.35f, 0.55f, -0.35f);
-            timerText.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            // Counteract parent (5, 0.5, 5) scale
-            timerText.transform.localScale = new Vector3(0.2f, 2.0f, 0.2f);
-            timerText.fontSize = 6f;
-            timerText.fontStyle = FontStyles.Bold;
-            timerText.alignment = TextAlignmentOptions.Center;
-        }
     }
 
     private void Start()
@@ -129,21 +116,17 @@ public class Pulpit : MonoBehaviour
         float displaySec = Mathf.Max(0f, timeRemaining);
         timerText.text = $"{displaySec:0.00}";
 
-        // Color and gentle pulse when low on time
+        // Only adjust text color based on time remaining - do NOT touch transform/scale!
         if (displaySec < 1.5f)
         {
-            float pulse = 1f + Mathf.Sin(Time.time * 24f) * 0.12f;
-            timerText.transform.localScale = new Vector3(0.2f * pulse, 2.0f * pulse, 0.2f * pulse);
-            timerText.color = new Color(1f, 0.35f, 0.35f, 1f);
+            timerText.color = new Color(1f, 0.25f, 0.25f, 1f); // Red
         }
         else if (displaySec < 2.5f)
         {
-            timerText.transform.localScale = new Vector3(0.2f, 2.0f, 0.2f);
-            timerText.color = new Color(1f, 0.9f, 0.4f, 1f);
+            timerText.color = new Color(1f, 0.9f, 0.3f, 1f); // Yellow
         }
         else
         {
-            timerText.transform.localScale = new Vector3(0.2f, 2.0f, 0.2f);
             timerText.color = Color.white;
         }
     }
