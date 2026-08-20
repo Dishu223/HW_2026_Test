@@ -1354,14 +1354,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ea26e470bb5dc074ea547f6047a4a9fe, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SoundManager
-  customFootstepClip: {fileID: 0}
-  customLandingClip: {fileID: 0}
+  startScreenBGMClip: {fileID: 8300000, guid: 8bfa642c86f986a4fa78551c0d790531, type: 3}
+  inGameBGMClip: {fileID: 8300000, guid: c659f1a038eeb1842947cad50325ed2c, type: 3}
+  customFootstepLeftClip: {fileID: 8300000, guid: 94e029faa85dabc4a831b6814b0ace87, type: 3}
+  customFootstepRightClip: {fileID: 8300000, guid: 62b0257578b2a3749b91920f89e158e5, type: 3}
+  customLandingClip: {fileID: 8300000, guid: 7ed52958b1d79614b8d855a3b1b1c8de, type: 3}
   customShatterClip: {fileID: 0}
-  customRewindClip: {fileID: 0}
-  customResumeClip: {fileID: 0}
-  customMilestoneClip: {fileID: 0}
-  customGameOverClip: {fileID: 0}
+  customRewindClip: {fileID: 8300000, guid: c65b79a5de395504cb2c4b3d55c74f34, type: 3}
+  customResumeClip: {fileID: 8300000, guid: cd4e34fc684e7c749863690ec54f4fa3, type: 3}
+  customMilestoneClip: {fileID: 8300000, guid: 28a12b8c0d6c55d44ac7b7e05d955bd5, type: 3}
+  customVictoryClip: {fileID: 8300000, guid: 46aa107dfc9f2ab42b32a178e59af169, type: 3}
+  customGameOverClip: {fileID: 8300000, guid: 9d4e3c3bc4398a643a6a1068a4b7350a, type: 3}
   masterVolume: 0.85
+  bgmVolume: 0.65
   sfxVolume: 0.9
 --- !u!4 &1212819721
 Transform:
@@ -1684,6 +1689,7 @@ RectTransform:
   - {fileID: 1859498839}
   - {fileID: 934251652}
   - {fileID: 762462607}
+  - {fileID: 1439447552}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -1828,6 +1834,58 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1401402654}
   m_CullTransparentMesh: 1
+--- !u!1 &1439447551
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1439447552}
+  - component: {fileID: 1439447553}
+  m_Layer: 5
+  m_Name: Lobby_Panel
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1439447552
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1439447551}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1317987139}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1439447553
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1439447551}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2db6ea75e813c0f4e9b128d014cc7b48, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LobbyUI
+  bodyColorButtonsContainer: {fileID: 0}
+  headColorButtonsContainer: {fileID: 0}
+  eyeColorButtonsContainer: {fileID: 0}
+  colorButtonPrefab: {fileID: 0}
 --- !u!1 &1539487822
 GameObject:
   m_ObjectHideFlags: 0
