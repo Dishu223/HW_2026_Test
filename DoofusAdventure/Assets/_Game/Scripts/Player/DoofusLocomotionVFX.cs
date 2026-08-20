@@ -2,15 +2,15 @@
 using UnityEngine;
 
 /// <summary>
-/// 3D Cartoon Mesh Dust Puff Engine:
-/// - Fixed movement detection (does not rely on rb.linearVelocity since movement uses rb.MovePosition)
-/// - Spawns 3D cartoon dust spheres alternating left/right feet behind Doofus
-/// - Spawns radial skid burst when stopping
+/// Tiny & Cute 3D Cartoon Dust Puff Engine:
+/// - Tiny, delicate cartoon dust puffs popping under Doofus''s heels
+/// - Soft float and quick playful dissipate
+/// - Mini skid brake burst
 /// </summary>
 public class DoofusLocomotionVFX : MonoBehaviour
 {
     [Header("Locomotion Tuning")]
-    [SerializeField] private float stepInterval = 0.14f;
+    [SerializeField] private float stepInterval = 0.12f;
 
     private class ActivePuff
     {
@@ -35,17 +35,16 @@ public class DoofusLocomotionVFX : MonoBehaviour
     {
         controller = GetComponent<DoofusController>();
 
-        // Create clean distinct cartoon dust material
         Shader litShader = Shader.Find("Universal Render Pipeline/Lit");
         if (litShader == null) litShader = Shader.Find("Standard");
 
         sharedPuffMaterial = new Material(litShader);
         if (sharedPuffMaterial.HasProperty("_BaseColor"))
-            sharedPuffMaterial.SetColor("_BaseColor", new Color(0.95f, 0.95f, 1f, 1f));
+            sharedPuffMaterial.SetColor("_BaseColor", new Color(0.96f, 0.96f, 1f, 0.85f));
         else
-            sharedPuffMaterial.color = new Color(0.95f, 0.95f, 1f, 1f);
+            sharedPuffMaterial.color = new Color(0.96f, 0.96f, 1f, 0.85f);
 
-        // Pre-warm pool of 20 dust spheres
+        // Pre-warm pool of 20 mini dust spheres
         for (int i = 0; i < 20; i++)
         {
             GameObject puffObj = CreatePuffObject();
@@ -57,7 +56,7 @@ public class DoofusLocomotionVFX : MonoBehaviour
     private GameObject CreatePuffObject()
     {
         GameObject puffObj = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        puffObj.name = "Cartoon_Dust_Puff";
+        puffObj.name = "Tiny_Cartoon_Puff";
 
         Collider col = puffObj.GetComponent<Collider>();
         if (col != null) Destroy(col);
@@ -79,7 +78,6 @@ public class DoofusLocomotionVFX : MonoBehaviour
         if (controller == null) return;
         if (RewindManager.Instance != null && RewindManager.Instance.IsRewinding) return;
 
-        // Use controller.IsMoving directly (reliable with rb.MovePosition!)
         bool isMoving = controller.IsMoving;
 
         if (isMoving)
@@ -88,37 +86,35 @@ public class DoofusLocomotionVFX : MonoBehaviour
             if (stepTimer >= stepInterval)
             {
                 stepTimer = 0f;
-                SpawnRunningPuff();
+                SpawnTinyRunningPuff();
             }
         }
         else
         {
-            stepTimer = stepInterval; // Instant puff on next movement start
+            stepTimer = stepInterval;
         }
 
-        // Skid brake detection when stopping abruptly
         if (wasMovingLastFrame && !isMoving)
         {
-            SpawnSkidPuffs();
+            SpawnTinySkidPuffs();
         }
 
         wasMovingLastFrame = isMoving;
     }
 
-    private void SpawnRunningPuff()
+    private void SpawnTinyRunningPuff()
     {
         GameObject puff = GetPuffFromPool();
         if (puff == null) return;
 
-        // Alternate feet (left/right foot)
         isLeftFoot = !isLeftFoot;
-        float sideOffset = isLeftFoot ? -0.28f : 0.28f;
+        float sideOffset = isLeftFoot ? -0.20f : 0.20f;
 
-        Vector3 forwardOffset = -transform.forward * 0.60f;
+        Vector3 forwardOffset = -transform.forward * 0.48f;
         Vector3 lateralOffset = transform.right * sideOffset;
         Vector3 spawnPos = new Vector3(
             transform.position.x + forwardOffset.x + lateralOffset.x,
-            0.36f, // 11cm above the Y = 0.25m platform surface
+            0.29f, // Resting lightly on platform top (Y = 0.25m)
             transform.position.z + forwardOffset.z + lateralOffset.z
         );
 
@@ -126,8 +122,8 @@ public class DoofusLocomotionVFX : MonoBehaviour
         puff.transform.localScale = Vector3.zero;
         puff.SetActive(true);
 
-        Vector3 vel = forwardOffset.normalized * 0.6f + Vector3.up * Random.Range(0.6f, 1.1f);
-        float targetSize = Random.Range(0.32f, 0.46f);
+        Vector3 vel = forwardOffset.normalized * 0.4f + Vector3.up * Random.Range(0.4f, 0.7f);
+        float targetSize = Random.Range(0.16f, 0.24f); // Tiny & cute!
 
         activePuffs.Add(new ActivePuff
         {
@@ -136,23 +132,23 @@ public class DoofusLocomotionVFX : MonoBehaviour
             initialScale = Vector3.one * targetSize,
             velocity = vel,
             lifetime = 0f,
-            maxLifetime = 0.25f
+            maxLifetime = 0.20f // Quick cute pop & dissipate
         });
     }
 
-    private void SpawnSkidPuffs()
+    private void SpawnTinySkidPuffs()
     {
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < 4; i++)
         {
             GameObject puff = GetPuffFromPool();
             if (puff == null) continue;
 
-            float angle = (i / 5f) * Mathf.PI * 2f;
-            Vector3 radialOffset = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * 0.70f;
+            float angle = (i / 4f) * Mathf.PI * 2f;
+            Vector3 radialOffset = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * 0.45f;
 
             Vector3 spawnPos = new Vector3(
                 transform.position.x + radialOffset.x,
-                0.36f,
+                0.29f,
                 transform.position.z + radialOffset.z
             );
 
@@ -160,8 +156,8 @@ public class DoofusLocomotionVFX : MonoBehaviour
             puff.transform.localScale = Vector3.zero;
             puff.SetActive(true);
 
-            Vector3 vel = radialOffset.normalized * 1.6f + Vector3.up * Random.Range(0.8f, 1.4f);
-            float targetSize = Random.Range(0.36f, 0.52f);
+            Vector3 vel = radialOffset.normalized * 0.9f + Vector3.up * Random.Range(0.5f, 0.9f);
+            float targetSize = Random.Range(0.20f, 0.28f);
 
             activePuffs.Add(new ActivePuff
             {
@@ -170,7 +166,7 @@ public class DoofusLocomotionVFX : MonoBehaviour
                 initialScale = Vector3.one * targetSize,
                 velocity = vel,
                 lifetime = 0f,
-                maxLifetime = 0.30f
+                maxLifetime = 0.22f
             });
         }
     }
@@ -194,10 +190,9 @@ public class DoofusLocomotionVFX : MonoBehaviour
 
             p.transform.position += p.velocity * Time.deltaTime;
 
-            // Pop big, then shrink smoothly to zero
-            float scaleMultiplier = (progress < 0.25f)
-                ? Mathf.Lerp(0.2f, 1.3f, progress / 0.25f)
-                : Mathf.Lerp(1.3f, 0f, (progress - 0.25f) / 0.75f);
+            float scaleMultiplier = (progress < 0.3f)
+                ? Mathf.Lerp(0.3f, 1.15f, progress / 0.3f)
+                : Mathf.Lerp(1.15f, 0f, (progress - 0.3f) / 0.7f);
 
             p.transform.localScale = p.initialScale * scaleMultiplier;
         }
