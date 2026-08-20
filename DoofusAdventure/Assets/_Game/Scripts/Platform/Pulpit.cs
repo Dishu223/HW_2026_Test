@@ -3,9 +3,9 @@ using UnityEngine;
 
 /// <summary>
 /// Controls an individual pulpit platform:
-/// - Counts down lifetime during active gameplay
+/// - Lifetime of exactly 5 seconds
 /// - Smooth color shift (Green -> Yellow -> Red)
-/// - Updates text and color on timerText WITHOUT overriding the user prefab transform or scale!
+/// - Diegetic countdown timer
 /// </summary>
 public class Pulpit : MonoBehaviour
 {
@@ -18,8 +18,8 @@ public class Pulpit : MonoBehaviour
     [Header("On-Tile Timer Text")]
     [SerializeField] private TextMeshPro timerText;
 
-    private float lifetime = 4.5f;
-    private float remainingTime = 4.5f;
+    private float lifetime = 5f;
+    private float remainingTime = 5f;
     private bool isDestroyed = false;
     private bool hasPlayerVisited = false;
     private Material runtimeMaterial;
@@ -43,10 +43,10 @@ public class Pulpit : MonoBehaviour
 
     public void InitializeLifetime()
     {
-        float minTime = GameConfig.Instance != null ? GameConfig.Instance.MinDestroyTime : 4f;
+        float minTime = GameConfig.Instance != null ? GameConfig.Instance.MinDestroyTime : 5f;
         float maxTime = GameConfig.Instance != null ? GameConfig.Instance.MaxDestroyTime : 5f;
 
-        lifetime = Random.Range(minTime, maxTime);
+        lifetime = (minTime == maxTime) ? minTime : Random.Range(minTime, maxTime);
         remainingTime = lifetime;
         isDestroyed = false;
         hasPlayerVisited = false;
@@ -59,7 +59,6 @@ public class Pulpit : MonoBehaviour
     {
         if (isDestroyed) return;
 
-        // Only count down if game is actively playing
         if (GameManager.Instance != null && !GameManager.Instance.IsPlaying)
         {
             UpdateTileText(remainingTime);
@@ -116,14 +115,13 @@ public class Pulpit : MonoBehaviour
         float displaySec = Mathf.Max(0f, timeRemaining);
         timerText.text = $"{displaySec:0.00}";
 
-        // Only adjust text color based on time remaining - do NOT touch transform/scale!
         if (displaySec < 1.5f)
         {
-            timerText.color = new Color(1f, 0.25f, 0.25f, 1f); // Red
+            timerText.color = new Color(1f, 0.25f, 0.25f, 1f);
         }
         else if (displaySec < 2.5f)
         {
-            timerText.color = new Color(1f, 0.9f, 0.3f, 1f); // Yellow
+            timerText.color = new Color(1f, 0.9f, 0.3f, 1f);
         }
         else
         {

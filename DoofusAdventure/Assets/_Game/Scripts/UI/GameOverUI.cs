@@ -4,7 +4,10 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Handles Game Over Screen. Only runs input detection when GameOver panel is active.
+/// Self-contained Game Over screen:
+/// - Automatically activates when Doofus falls
+/// - Counting-up score ticker and best score
+/// - Restarts game on 'R' key, Space, or Click
 /// </summary>
 public class GameOverUI : MonoBehaviour
 {
@@ -18,35 +21,54 @@ public class GameOverUI : MonoBehaviour
     private float activationCooldown = 0.3f;
     private float timer = 0f;
 
+    private void Awake()
+    {
+        // Start disabled until Game Over occurs
+        gameObject.SetActive(false);
+    }
+
     private void OnEnable()
     {
         timer = 0f;
         DisplayGameOverResults();
+
+        GameEvents.OnGameOver += HandleGameOverEvent;
+        GameEvents.OnGameStart += HandleGameStartEvent;
+    }
+
+    private void OnDisable()
+    {
+        GameEvents.OnGameOver -= HandleGameOverEvent;
+        GameEvents.OnGameStart -= HandleGameStartEvent;
+    }
+
+    private void HandleGameOverEvent()
+    {
+        gameObject.SetActive(true);
+    }
+
+    private void HandleGameStartEvent()
+    {
+        gameObject.SetActive(false);
     }
 
     private void Update()
     {
         timer += Time.unscaledDeltaTime;
-        if (timer < activationCooldown) return; // Prevent accidental instant skip on death frame
+        if (timer < activationCooldown) return;
 
         if (restartPromptText != null)
         {
             restartPromptText.alpha = 0.4f + Mathf.PingPong(Time.unscaledTime * 2.5f, 0.6f);
         }
 
-        // Detect R key, Space, Enter, or Click to restart
-        Keyboard keyboard = Keyboard.current;
-        if (keyboard != null && (keyboard.rKey.wasPressedThisFrame || keyboard.spaceKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame))
-        {
-            RestartGame();
-            return;
-        }
+        // Restart on R key, Space, Enter, or Click
+        bool rPressed = Keyboard.current != null && (Keyboard.current.rKey.wasPressedThisFrame || Keyboard.current.spaceKey.wasPressedThisFrame || Keyboard.current.enterKey.wasPressedThisFrame);
+        bool mouseClicked = Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
 
-        Mouse mouse = Mouse.current;
-        if (mouse != null && mouse.leftButton.wasPressedThisFrame)
+        if (rPressed || mouseClicked)
         {
             RestartGame();
-            return;
         }
     }
 
@@ -92,6 +114,8 @@ public class GameOverUI : MonoBehaviour
 
     public void RestartGame()
     {
+        gameObject.SetActive(false);
+
         if (GameManager.Instance != null)
         {
             GameManager.Instance.SetState(GameManager.GameState.Playing);
