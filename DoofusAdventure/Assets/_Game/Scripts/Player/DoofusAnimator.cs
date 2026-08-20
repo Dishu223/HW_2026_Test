@@ -6,7 +6,7 @@ using UnityEngine;
 /// - Smooth acceleration lean and head drag
 /// - Continuous rhythmic back-and-forth head bobbing while running
 /// - Exaggerated stopping brake & forward whip
-/// - Cute expressive eyes: idle periodic blinking, wide excited running eyes, and cute stop-blinks!
+/// - High-visibility cartoon eyes: crisp eyelid-slit blinks, wide running eyes, and stop-blinks!
 /// </summary>
 public class DoofusAnimator : MonoBehaviour
 {
@@ -48,7 +48,7 @@ public class DoofusAnimator : MonoBehaviour
     private const float OVERSHOOT_DURATION = 0.35f;
 
     // Eye animation state
-    private float nextBlinkTime = 2.5f;
+    private float nextBlinkTime = 2.0f;
     private float blinkTimer = 0f;
     private bool isBlinking = false;
     private Coroutine blinkRoutine;
@@ -75,7 +75,7 @@ public class DoofusAnimator : MonoBehaviour
         else
             defaultEyeScale = new Vector3(0.16f, 0.16f, 0.16f);
 
-        nextBlinkTime = Random.Range(2.5f, 4.5f);
+        nextBlinkTime = Random.Range(2.0f, 3.5f);
     }
 
     private void OnEnable()
@@ -109,8 +109,7 @@ public class DoofusAnimator : MonoBehaviour
         if (wasMovingLastFrame && !isMoving)
         {
             stopOvershootTimer = OVERSHOOT_DURATION;
-            // Cute instant blink on stopping!
-            TriggerBlink(0.08f);
+            TriggerBlink(0.20f); // High-visibility cute stop-blink!
         }
         wasMovingLastFrame = isMoving;
 
@@ -185,50 +184,44 @@ public class DoofusAnimator : MonoBehaviour
         bodyTransform.localPosition = Vector3.Lerp(bodyTransform.localPosition, targetPos, Time.deltaTime * 8f);
     }
 
-    /// <summary>
-    /// Updates eye scales based on state:
-    /// - Running: Wide excited cartoon eyes (1.38x)
-    /// - Idle: Natural scale with periodic cute blinking
-    /// - Low Platform Timer: Panicked bulging tremor
-    /// </summary>
     private void UpdateEyeExpressions(bool isMoving)
     {
-        if (leftEyeTransform == null || rightEyeTransform == null || isFalling || isBlinking) return;
+        if (leftEyeTransform == null || rightEyeTransform == null || isFalling) return;
 
-        // Periodic natural idle blinking
-        if (!isMoving)
+        // Handle periodic idle blinking timer
+        if (!isMoving && !isBlinking)
         {
             blinkTimer += Time.deltaTime;
             if (blinkTimer >= nextBlinkTime)
             {
                 blinkTimer = 0f;
-                nextBlinkTime = Random.Range(2.5f, 4.5f);
-                TriggerBlink(0.12f);
-                return;
+                nextBlinkTime = Random.Range(2.0f, 3.5f);
+                TriggerBlink(0.20f);
             }
         }
-        else
+        else if (isMoving)
         {
             blinkTimer = 0f;
         }
+
+        // If blinking right now, let the coroutine control scale directly
+        if (isBlinking) return;
 
         // Base Scale Multiplier
         float scaleMultiplier = 1f;
 
         if (currentPulpitTimer < 0.25f)
         {
-            // Panicked state
             scaleMultiplier = 1.8f + Mathf.Sin(Time.time * 30f) * 0.2f;
         }
         else if (currentPulpitTimer < 0.5f)
         {
-            // Worried state
             scaleMultiplier = 1.35f;
         }
         else if (isMoving)
         {
             // Wide excited eyes while running!
-            scaleMultiplier = 1.4f;
+            scaleMultiplier = 1.45f;
         }
         else
         {
@@ -240,44 +233,70 @@ public class DoofusAnimator : MonoBehaviour
         rightEyeTransform.localScale = Vector3.Lerp(rightEyeTransform.localScale, targetScale, Time.deltaTime * 14f);
     }
 
-    public void TriggerBlink(float blinkDuration = 0.1f)
+    public void TriggerBlink(float duration = 0.20f)
     {
         if (!gameObject.activeInHierarchy) return;
 
         if (blinkRoutine != null) StopCoroutine(blinkRoutine);
-        blinkRoutine = StartCoroutine(BlinkCoroutine(blinkDuration));
+        blinkRoutine = StartCoroutine(HighVisibilityBlinkCoroutine(duration));
     }
 
-    private IEnumerator BlinkCoroutine(float duration)
+    /// <summary>
+    /// Highly visible 3-phase cartoon blink:
+    /// Phase 1: Squashes Y down to 0.015 and widens X to 1.5x (classic cartoon eyelid slit line)
+    /// Phase 2: Holds closed for 0.05s so the eye registers clearly
+    /// Phase 3: Pops open with a cute bouncy spring overshoot!
+    /// </summary>
+    private IEnumerator HighVisibilityBlinkCoroutine(float totalDuration)
     {
         isBlinking = true;
-        Vector3 currentScale = leftEyeTransform != null ? leftEyeTransform.localScale : defaultEyeScale;
-        Vector3 closedScale = new Vector3(currentScale.x * 1.2f, currentScale.y * 0.08f, currentScale.z);
-        float halfDuration = duration / 2f;
 
-        // Close eyes
+        Vector3 openScale = leftEyeTransform != null ? leftEyeTransform.localScale : defaultEyeScale;
+        // Closed eye: flat horizontal line slit
+        Vector3 closedSlitScale = new Vector3(defaultEyeScale.x * 1.5f, 0.02f, defaultEyeScale.z * 1.1f);
+
+        float closeTime = totalDuration * 0.35f;
+        float holdTime = totalDuration * 0.25f;
+        float openTime = totalDuration * 0.40f;
+
+        // 1. Close down to slit
         float elapsed = 0f;
-        while (elapsed < halfDuration)
+        while (elapsed < closeTime)
         {
             elapsed += Time.deltaTime;
-            Vector3 s = Vector3.Lerp(currentScale, closedScale, elapsed / halfDuration);
-            if (leftEyeTransform != null) leftEyeTransform.localScale = s;
-            if (rightEyeTransform != null) rightEyeTransform.localScale = s;
+            Vector3 s = Vector3.Lerp(openScale, closedSlitScale, elapsed / closeTime);
+            SetEyeScale(s);
             yield return null;
         }
+        SetEyeScale(closedSlitScale);
 
-        // Open eyes back
+        // 2. Hold closed momentarily for clear visual recognition
+        yield return new WaitForSeconds(holdTime);
+
+        // 3. Pop open with slight spring overshoot
+        Vector3 overshootScale = new Vector3(openScale.x * 0.95f, openScale.y * 1.25f, openScale.z);
         elapsed = 0f;
-        while (elapsed < halfDuration)
+        while (elapsed < openTime)
         {
             elapsed += Time.deltaTime;
-            Vector3 s = Vector3.Lerp(closedScale, currentScale, elapsed / halfDuration);
-            if (leftEyeTransform != null) leftEyeTransform.localScale = s;
-            if (rightEyeTransform != null) rightEyeTransform.localScale = s;
+            float t = elapsed / openTime;
+            // Spring curve
+            Vector3 s = t < 0.6f 
+                ? Vector3.Lerp(closedSlitScale, overshootScale, t / 0.6f) 
+                : Vector3.Lerp(overshootScale, openScale, (t - 0.6f) / 0.4f);
+
+            SetEyeScale(s);
             yield return null;
         }
 
+        SetEyeScale(openScale);
         isBlinking = false;
+    }
+
+    private void SetEyeScale(Vector3 scale)
+    {
+        if (leftEyeTransform != null) leftEyeTransform.localScale = scale;
+        if (rightEyeTransform != null) rightEyeTransform.localScale = scale;
     }
 
     private void TriggerLandSquash()
