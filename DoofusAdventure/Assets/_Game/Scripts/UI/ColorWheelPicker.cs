@@ -31,7 +31,6 @@ public class ColorWheelPicker : MonoBehaviour, IPointerDownHandler, IDragHandler
         wheelRect.sizeDelta = new Vector2(size, size);
         wheelRadius = size * 0.5f;
 
-        // Force strict 1:1 layout sizing
         LayoutElement le = GetComponent<LayoutElement>();
         if (le == null) le = gameObject.AddComponent<LayoutElement>();
         le.preferredWidth = size;
@@ -50,7 +49,6 @@ public class ColorWheelPicker : MonoBehaviour, IPointerDownHandler, IDragHandler
         wheelImage.preserveAspect = true;
         wheelImage.raycastTarget = true;
 
-        // Cursor Indicator
         GameObject cursorObj = new GameObject("Wheel_Cursor");
         cursorObj.transform.SetParent(transform, false);
         cursorRect = cursorObj.AddComponent<RectTransform>();
@@ -83,6 +81,12 @@ public class ColorWheelPicker : MonoBehaviour, IPointerDownHandler, IDragHandler
                 NotifyColorChanged();
             });
         }
+    }
+
+    public void SetBrightnessMultiplier(float val)
+    {
+        currentBrightness = Mathf.Clamp01(val);
+        NotifyColorChanged();
     }
 
     public void SetPreviewBox(Image preview)
