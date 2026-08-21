@@ -5,8 +5,8 @@ using UnityEngine.Rendering.Universal;
 
 /// <summary>
 /// Cute Environment, Infinite Cloud Field & Lighting Manager:
-/// - Infinite Camera-Centered Cloud Field: Recycles clouds ahead as the player travels forward
-/// - Authentic Multi-Puff Cartoon Cloud Geometry (flat underside, rounded dome puffs)
+/// - Infinite Camera-Centered Cloud Field with buttery-smooth Scale-In / Scale-Out transitions (Zero popping!)
+/// - Authentic Multi-Dome Cartoon Cloud Geometry (flat underside, rounded dome puffs)
 /// - 3 Parallax Cloud Layers (Distant Horizon, Mid-Level Marshmallows, Foreground Cloudlets)
 /// - Gentle floating vertical sinusoidal bobbing
 /// - Pixar-style URP Color Vibrancy, Bloom, and Ambient Sunny Sparkles
@@ -26,16 +26,20 @@ public class CuteEnvironmentManager : MonoBehaviour
     [SerializeField] private float cloudBehindThreshold = 25f;
     [SerializeField] private float cloudLateralRadius = 45f;
     [SerializeField] private float baseDriftSpeed = 1.1f;
+    [SerializeField] private float cloudGrowSpeed = 1.8f;
 
-    private struct CloudData
+    private class CloudData
     {
         public Transform transform;
+        public Vector3 targetScale;
+        public Vector3 currentScale;
         public float driftSpeed;
         public float bobSpeed;
         public float bobAmplitude;
         public float bobPhase;
         public float baseY;
-        public int layer; // 0 = Distant, 1 = Mid, 2 = Close
+        public int layer;
+        public bool isRecycling;
     }
 
     private List<CloudData> cloudPool = new List<CloudData>();
@@ -61,7 +65,6 @@ public class CuteEnvironmentManager : MonoBehaviour
 
     private void Start()
     {
-        // Cache camera or player reference
         Camera cam = Camera.main;
         if (cam != null) playerOrCam = cam.transform;
     }
@@ -170,28 +173,44 @@ public class CuteEnvironmentManager : MonoBehaviour
 
         for (int i = 0; i < totalClouds; i++)
         {
-            int layer = i % 3; // 0 = Deep Horizon, 1 = Mid, 2 = Foreground
+            int layer = i % 3;
+            float finalScale = GetLayerOverallScale(layer);
+            Vector3 baseScale = Vector3.one * finalScale;
+
             GameObject cloudObj = BuildCutePuffyCloud(root.transform, layer);
 
-            // Random initial placement in a large cylinder around origin/camera
             float x = Random.Range(-cloudLateralRadius, cloudLateralRadius);
             float z = Random.Range(-cloudBehindThreshold, cloudForwardRadius);
             float y = GetLayerBaseY(layer);
 
             cloudObj.transform.position = new Vector3(centerPos.x + x, y, centerPos.z + z);
+            cloudObj.transform.localScale = baseScale;
 
             CloudData data = new CloudData
             {
                 transform = cloudObj.transform,
+                targetScale = baseScale,
+                currentScale = baseScale,
                 driftSpeed = GetLayerDriftSpeed(layer),
                 bobSpeed = Random.Range(0.8f, 1.6f),
                 bobAmplitude = Random.Range(0.2f, 0.6f),
                 bobPhase = Random.Range(0f, Mathf.PI * 2f),
                 baseY = y,
-                layer = layer
+                layer = layer,
+                isRecycling = false
             };
 
             cloudPool.Add(data);
+        }
+    }
+
+    private float GetLayerOverallScale(int layer)
+    {
+        switch (layer)
+        {
+            case 0: return Random.Range(3.8f, 6.2f);
+            case 1: return Random.Range(2.4f, 4.0f);
+            default: return Random.Range(1.3f, 2.2f);
         }
     }
 
@@ -199,9 +218,9 @@ public class CuteEnvironmentManager : MonoBehaviour
     {
         switch (layer)
         {
-            case 0: return Random.Range(-14f, -22f); // Deep Horizon
-            case 1: return Random.Range(-7f, -13f);  // Mid-Level
-            default: return Random.Range(-3f, -6f);  // Foreground
+            case 0: return Random.Range(-14f, -22f);
+            case 1: return Random.Range(-7f, -13f);
+            default: return Random.Range(-3f, -6f);
         }
     }
 
@@ -209,9 +228,9 @@ public class CuteEnvironmentManager : MonoBehaviour
     {
         switch (layer)
         {
-            case 0: return baseDriftSpeed * Random.Range(0.35f, 0.65f); // Slow distant parallax
+            case 0: return baseDriftSpeed * Random.Range(0.35f, 0.65f);
             case 1: return baseDriftSpeed * Random.Range(0.8f, 1.2f);
-            default: return baseDriftSpeed * Random.Range(1.3f, 1.8f);  // Faster foreground breeze
+            default: return baseDriftSpeed * Random.Range(1.3f, 1.8f);
         }
     }
 
@@ -220,31 +239,13 @@ public class CuteEnvironmentManager : MonoBehaviour
         GameObject cloud = new GameObject($"Cartoon_Cloud_L{layer}");
         cloud.transform.SetParent(parent, false);
 
-        // Cute low-poly fluffy cloud composition:
-        // 1 large center dome + 2 medium side domes + 2 small outer puffs + flat bottom
-        int puffCount = Random.Range(5, 8);
-
-        // Center main dome
         CreatePuffSphere(cloud.transform, Vector3.up * 0.2f, new Vector3(1.4f, 1.1f, 1.3f));
-
-        // Side domes
         CreatePuffSphere(cloud.transform, new Vector3(-0.95f, -0.05f, 0.1f), new Vector3(1.1f, 0.9f, 1.0f));
         CreatePuffSphere(cloud.transform, new Vector3(0.95f, -0.05f, -0.1f), new Vector3(1.15f, 0.95f, 1.05f));
-
-        // Outer small puffs
         CreatePuffSphere(cloud.transform, new Vector3(-1.65f, -0.25f, -0.05f), new Vector3(0.75f, 0.65f, 0.75f));
         CreatePuffSphere(cloud.transform, new Vector3(1.65f, -0.22f, 0.08f), new Vector3(0.80f, 0.70f, 0.80f));
-
-        // Back puff for 3D depth
         CreatePuffSphere(cloud.transform, new Vector3(0.2f, 0.05f, 0.65f), new Vector3(0.9f, 0.8f, 0.9f));
 
-        // Scale by layer
-        float overallScale = 1f;
-        if (layer == 0) overallScale = Random.Range(3.5f, 6.0f);     // Massive distant clouds
-        else if (layer == 1) overallScale = Random.Range(2.2f, 3.8f); // Mid marshmallow clouds
-        else overallScale = Random.Range(1.2f, 2.0f);                // Small cute cloudlets
-
-        cloud.transform.localScale = Vector3.one * overallScale;
         return cloud;
     }
 
@@ -262,7 +263,7 @@ public class CuteEnvironmentManager : MonoBehaviour
         if (mr != null && cloudMaterial != null)
         {
             mr.sharedMaterial = cloudMaterial;
-            mr.shadowCastingMode = ShadowCastingMode.Off; // Pure soft ambient visual
+            mr.shadowCastingMode = ShadowCastingMode.Off;
         }
     }
 
@@ -316,13 +317,11 @@ public class CuteEnvironmentManager : MonoBehaviour
 
         Vector3 centerPos = (playerOrCam != null) ? playerOrCam.position : Vector3.zero;
 
-        // Update ambient sun sparkles to follow the player area
         if (ambientSparklesPS != null)
         {
             ambientSparklesPS.transform.position = new Vector3(centerPos.x, centerPos.y + 1.5f, centerPos.z);
         }
 
-        // Update each cloud: Drift horizontally + Bob vertically + Infinite wrap around player/camera!
         for (int i = 0; i < cloudPool.Count; i++)
         {
             CloudData c = cloudPool[i];
@@ -337,17 +336,32 @@ public class CuteEnvironmentManager : MonoBehaviour
             float bobOffset = Mathf.Sin(Time.time * c.bobSpeed + c.bobPhase) * c.bobAmplitude;
             pos.y = c.baseY + bobOffset;
 
-            // 3. INFINITE HORIZON RECYCLING (Relative to Camera / Player Center)
-            // If the player moved forward in +Z, recycle clouds that fell behind to the front!
-            if (pos.z < centerPos.z - cloudBehindThreshold)
+            // 3. Smooth Scale-In / Scale-Out Transition (Condense naturally out of the sky!)
+            if (c.isRecycling)
             {
-                pos.z = centerPos.z + cloudForwardRadius + Random.Range(-5f, 15f);
-                pos.x = centerPos.x + Random.Range(-cloudLateralRadius, cloudLateralRadius);
+                // Shrink down smoothly before teleporting
+                c.currentScale = Vector3.Lerp(c.currentScale, Vector3.zero, Time.deltaTime * cloudGrowSpeed * 2.5f);
+                if (c.currentScale.x < 0.05f)
+                {
+                    // Once shrunk, teleport to forward horizon and begin growing
+                    pos.z = centerPos.z + cloudForwardRadius + Random.Range(5f, 25f);
+                    pos.x = centerPos.x + Random.Range(-cloudLateralRadius, cloudLateralRadius);
+                    pos.y = GetLayerBaseY(c.layer);
+                    c.baseY = pos.y;
+                    c.currentScale = Vector3.zero;
+                    c.isRecycling = false;
+                }
             }
-            else if (pos.z > centerPos.z + cloudForwardRadius + 20f)
+            else
             {
-                pos.z = centerPos.z - cloudBehindThreshold + Random.Range(-5f, 5f);
-                pos.x = centerPos.x + Random.Range(-cloudLateralRadius, cloudLateralRadius);
+                // Smoothly grow / bloom to full cloud scale
+                c.currentScale = Vector3.Lerp(c.currentScale, c.targetScale, Time.deltaTime * cloudGrowSpeed);
+
+                // Trigger recycling when far behind camera
+                if (pos.z < centerPos.z - cloudBehindThreshold)
+                {
+                    c.isRecycling = true;
+                }
             }
 
             // Lateral wind wrap around along X
@@ -361,6 +375,7 @@ public class CuteEnvironmentManager : MonoBehaviour
             }
 
             c.transform.position = pos;
+            c.transform.localScale = c.currentScale;
         }
     }
 }
