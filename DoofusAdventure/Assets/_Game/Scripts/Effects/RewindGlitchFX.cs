@@ -8,9 +8,9 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Retro VHS Tape Rewind & RGB Glitch Screen FX Engine:
-/// - Dense CRT scanlines with animated VHS vertical roll
-/// - Dynamic RGB Split / Horizontal Glitch Tear Slices (Red / Cyan chromatic tearing)
-/// - VCR Tracking Noise Bar sweeping down the screen
+/// - Dense CRT scanlines covering the entire viewport
+/// - Full-width RGB Split / Horizontal Glitch Tear Slices (Red / Cyan chromatic tearing across full screen)
+/// - VCR Tracking Noise Bar rolling down the center of the screen
 /// - Retro Top-Left VCR OSD: "<< REWIND -16X"
 /// - Lens distortion & Chromatic Aberration via URP Volume
 /// - Touchdown Flash Burst when resuming gameplay
@@ -113,13 +113,14 @@ public class RewindGlitchFX : MonoBehaviour
         scanlineTexture = GenerateScanlineTexture(64, 64);
         noiseTexture = GenerateNoiseTexture(128, 128);
 
-        // 1. Dense CRT Scanlines
+        // 1. Full-Screen CRT Scanlines
         GameObject scanlineObj = new GameObject("Scanline_Overlay");
         scanlineObj.transform.SetParent(canvasObj.transform, false);
         RectTransform scanRT = scanlineObj.AddComponent<RectTransform>();
         scanRT.anchorMin = Vector2.zero;
         scanRT.anchorMax = Vector2.one;
-        scanRT.sizeDelta = Vector2.zero;
+        scanRT.offsetMin = Vector2.zero;
+        scanRT.offsetMax = Vector2.zero;
 
         scanlineImage = scanlineObj.AddComponent<RawImage>();
         scanlineImage.texture = scanlineTexture;
@@ -127,30 +128,32 @@ public class RewindGlitchFX : MonoBehaviour
         scanlineImage.color = Color.clear;
         scanlineImage.raycastTarget = false;
 
-        // 2. VHS Tape Tracking Bar (Horizontal Noise Band)
+        // 2. Full-Width VHS Tape Tracking Noise Bar (2600px wide across full screen!)
         GameObject trackObj = new GameObject("VHS_Tracking_Bar");
         trackObj.transform.SetParent(canvasObj.transform, false);
         trackingBar = trackObj.AddComponent<RectTransform>();
-        trackingBar.anchorMin = new Vector2(0f, 0.5f);
-        trackingBar.anchorMax = new Vector2(1f, 0.5f);
+        trackingBar.anchorMin = new Vector2(0.5f, 0.5f);
+        trackingBar.anchorMax = new Vector2(0.5f, 0.5f);
         trackingBar.pivot = new Vector2(0.5f, 0.5f);
-        trackingBar.sizeDelta = new Vector2(0f, 80f);
+        trackingBar.sizeDelta = new Vector2(2600f, 90f);
+        trackingBar.anchoredPosition = new Vector2(0f, 0f);
 
         RawImage trackImg = trackObj.AddComponent<RawImage>();
         trackImg.texture = noiseTexture;
         trackImg.color = Color.clear;
         trackImg.raycastTarget = false;
 
-        // 3. Dynamic RGB Chromatic Tear Strips
+        // 3. Dynamic Full-Width RGB Chromatic Tear Strips (2600px wide)
         for (int i = 0; i < 6; i++)
         {
             GameObject stripObj = new GameObject($"RGB_Glitch_Strip_{i}");
             stripObj.transform.SetParent(canvasObj.transform, false);
 
             RectTransform stripRT = stripObj.AddComponent<RectTransform>();
-            stripRT.anchorMin = new Vector2(0f, 0.5f);
-            stripRT.anchorMax = new Vector2(1f, 0.5f);
-            stripRT.sizeDelta = new Vector2(0f, Random.Range(18f, 45f));
+            stripRT.anchorMin = new Vector2(0.5f, 0.5f);
+            stripRT.anchorMax = new Vector2(0.5f, 0.5f);
+            stripRT.pivot = new Vector2(0.5f, 0.5f);
+            stripRT.sizeDelta = new Vector2(2600f, Random.Range(20f, 60f));
             stripRT.anchoredPosition = new Vector2(0f, Random.Range(-400f, 400f));
 
             Image stripImg = stripObj.AddComponent<Image>();
@@ -177,13 +180,14 @@ public class RewindGlitchFX : MonoBehaviour
         vcrText.color = Color.clear;
         vcrText.raycastTarget = false;
 
-        // 5. Flash Overlay
+        // 5. Full-Screen Flash Overlay
         GameObject flashObj = new GameObject("Flash_Overlay");
         flashObj.transform.SetParent(canvasObj.transform, false);
         RectTransform flashRT = flashObj.AddComponent<RectTransform>();
         flashRT.anchorMin = Vector2.zero;
         flashRT.anchorMax = Vector2.one;
-        flashRT.sizeDelta = Vector2.zero;
+        flashRT.offsetMin = Vector2.zero;
+        flashRT.offsetMax = Vector2.zero;
 
         flashOverlay = flashObj.AddComponent<Image>();
         flashOverlay.color = Color.clear;
@@ -220,7 +224,7 @@ public class RewindGlitchFX : MonoBehaviour
         Color[] pixels = new Color[width * height];
         for (int i = 0; i < pixels.Length; i++)
         {
-            float val = Random.value > 0.45f ? Random.Range(0.6f, 1f) : 0f;
+            float val = Random.value > 0.40f ? Random.Range(0.6f, 1f) : 0f;
             pixels[i] = new Color(val, val, val, val * 0.45f);
         }
         tex.SetPixels(pixels);
@@ -240,28 +244,27 @@ public class RewindGlitchFX : MonoBehaviour
             scanlineImage.uvRect = uv;
         }
 
-        // 2. Move VHS Tracking Noise Bar downwards
+        // 2. Move VHS Tracking Noise Bar downwards across the full screen
         if (trackingBar != null)
         {
-            float barY = trackingBar.anchoredPosition.y - Time.unscaledDeltaTime * 380f;
-            if (barY < -540f) barY = 540f;
+            float barY = trackingBar.anchoredPosition.y - Time.unscaledDeltaTime * 420f;
+            if (barY < -580f) barY = 580f;
             trackingBar.anchoredPosition = new Vector2(0f, barY);
         }
 
-        // 3. Jitter RGB Glitch Strips (Alternating Red / Cyan chromatic tearing)
+        // 3. Jitter RGB Glitch Strips across full screen (Vivid Red / Electric Cyan)
         for (int i = 0; i < glitchStrips.Count; i++)
         {
             if (glitchStrips[i] != null && glitchStripImages[i] != null)
             {
-                // Rapidly jitter strip height, Y position, and color
-                if (Random.value < 0.25f)
+                if (Random.value < 0.30f)
                 {
-                    glitchStrips[i].anchoredPosition = new Vector2(Random.Range(-25f, 25f), Random.Range(-480f, 480f));
-                    glitchStrips[i].sizeDelta = new Vector2(0f, Random.Range(10f, 55f));
+                    glitchStrips[i].anchoredPosition = new Vector2(Random.Range(-40f, 40f), Random.Range(-480f, 480f));
+                    glitchStrips[i].sizeDelta = new Vector2(2600f, Random.Range(15f, 65f));
 
                     Color glitchCol = (i % 2 == 0)
-                        ? new Color(1f, 0f, 0.35f, Random.Range(0.25f, 0.65f))  // Vivid Red Split
-                        : new Color(0f, 0.95f, 1f, Random.Range(0.25f, 0.65f)); // Vivid Cyan Split
+                        ? new Color(1f, 0f, 0.35f, Random.Range(0.35f, 0.75f))  // Vivid Red Chromatic Split
+                        : new Color(0f, 0.95f, 1f, Random.Range(0.35f, 0.75f)); // Electric Cyan Chromatic Split
 
                     glitchStripImages[i].color = glitchCol;
                 }
@@ -305,7 +308,7 @@ public class RewindGlitchFX : MonoBehaviour
         if (trackingBar != null)
         {
             RawImage ri = trackingBar.GetComponent<RawImage>();
-            if (ri != null) ri.color = new Color(1f, 1f, 1f, 0.65f);
+            if (ri != null) ri.color = new Color(1f, 1f, 1f, 0.75f);
         }
 
         while (elapsed < duration)
@@ -330,7 +333,6 @@ public class RewindGlitchFX : MonoBehaviour
         float elapsed = 0f;
         float duration = 0.35f;
 
-        // Hide glitch strips & VCR text
         for (int i = 0; i < glitchStripImages.Count; i++)
         {
             if (glitchStripImages[i] != null) glitchStripImages[i].color = Color.clear;
@@ -342,7 +344,6 @@ public class RewindGlitchFX : MonoBehaviour
             if (ri != null) ri.color = Color.clear;
         }
 
-        // Touchdown Flash
         if (flashOverlay != null) flashOverlay.color = new Color(1f, 1f, 1f, 0.85f);
 
         while (elapsed < duration)
