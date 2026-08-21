@@ -6,6 +6,7 @@ using UnityEngine.UI;
 /// True Interactive Circular Color Wheel Picker:
 /// - Guarantees strict 1:1 circular aspect ratio with zero oval stretching
 /// - Full 360-degree interactive dragging to the outer circle rim
+/// - Automatic self-initialization on Awake
 /// </summary>
 [RequireComponent(typeof(RectTransform))]
 public class ColorWheelPicker : MonoBehaviour, IPointerDownHandler, IDragHandler
@@ -21,13 +22,26 @@ public class ColorWheelPicker : MonoBehaviour, IPointerDownHandler, IDragHandler
     private float currentHue = 0f;
     private float currentSaturation = 0f;
     private float currentBrightness = 1f;
-    private float wheelRadius = 75f;
+    private float wheelRadius = 90f;
+    private bool isInitialized = false;
 
     public Color CurrentColor => Color.HSVToRGB(currentHue, currentSaturation, currentBrightness);
 
-    public void Initialize(float size = 150f)
+    private void Awake()
     {
+        if (!isInitialized)
+        {
+            Initialize(180f);
+        }
+    }
+
+    public void Initialize(float size = 180f)
+    {
+        if (isInitialized) return;
+        isInitialized = true;
+
         wheelRect = GetComponent<RectTransform>();
+        if (wheelRect == null) wheelRect = gameObject.AddComponent<RectTransform>();
         wheelRect.sizeDelta = new Vector2(size, size);
         wheelRadius = size * 0.5f;
 
@@ -49,6 +63,7 @@ public class ColorWheelPicker : MonoBehaviour, IPointerDownHandler, IDragHandler
         wheelImage.preserveAspect = true;
         wheelImage.raycastTarget = true;
 
+        // Cursor Indicator
         GameObject cursorObj = new GameObject("Wheel_Cursor");
         cursorObj.transform.SetParent(transform, false);
         cursorRect = cursorObj.AddComponent<RectTransform>();

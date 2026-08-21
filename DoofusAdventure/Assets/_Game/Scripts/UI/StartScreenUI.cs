@@ -79,7 +79,7 @@ public class StartScreenUI : MonoBehaviour
             titleText.rectTransform.anchoredPosition = new Vector2(titleText.rectTransform.anchoredPosition.x, newY);
         }
 
-        // 3. Elastic Bouncing & Soft Pulsing "PRESS SPACE" Prompt (Preserves your chosen Inspector color!)
+        // 3. Elastic Bouncing & Soft Pulsing "PRESS SPACE" Prompt
         if (pressSpacePrompt != null)
         {
             float bounceX = initialPromptX + Mathf.Sin(Time.unscaledTime * 4.5f) * 10f;
@@ -88,7 +88,6 @@ public class StartScreenUI : MonoBehaviour
             float scalePulse = 1.0f + Mathf.Sin(Time.unscaledTime * 5.0f) * 0.08f;
             pressSpacePrompt.rectTransform.localScale = initialPromptScale * scalePulse;
 
-            // Animate alpha pulse - NEVER overwrites your RGB Inspector color!
             pressSpacePrompt.alpha = 0.65f + Mathf.PingPong(Time.unscaledTime * 2.5f, 0.35f);
         }
 
@@ -154,13 +153,14 @@ public class StartScreenUI : MonoBehaviour
         wheelObj.transform.SetParent(parent, false);
 
         RectTransform rt = wheelObj.AddComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(190f, 190f);
+        rt.sizeDelta = new Vector2(180f, 180f);
 
         LayoutElement le = wheelObj.AddComponent<LayoutElement>();
-        le.preferredWidth = 190f;
-        le.preferredHeight = 190f;
+        le.preferredWidth = 180f;
+        le.preferredHeight = 180f;
 
         colorWheel = wheelObj.AddComponent<ColorWheelPicker>();
+        colorWheel.Initialize(180f);
         colorWheel.OnColorChanged += HandleColorWheelChanged;
     }
 
