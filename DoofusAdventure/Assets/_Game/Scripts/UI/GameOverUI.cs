@@ -6,7 +6,7 @@ using UnityEngine.InputSystem;
 /// <summary>
 /// Self-contained Game Over & Victory Celebration Screen:
 /// - Automatically PAUSES the game physics/world (Time.timeScale = 0f) at Game Over & Victory!
-/// - Resumes time (Time.timeScale = 1f) when restarting or continuing Endless Mode
+/// - Resumes time (Time.timeScale = 1f) and clears celebratory confetti when restarting or continuing Endless Mode
 /// - Smooth animated score ticker and robust Space / R / Click triggers
 /// </summary>
 [RequireComponent(typeof(CanvasGroup))]
@@ -179,6 +179,10 @@ public class GameOverUI : MonoBehaviour
 
     private void ContinueEndlessMode()
     {
+        if (VFXManager.Instance != null)
+        {
+            VFXManager.Instance.ClearAllConfetti();
+        }
         HidePanelImmediate();
     }
 
@@ -224,6 +228,11 @@ public class GameOverUI : MonoBehaviour
     public void RestartGame()
     {
         Time.timeScale = 1f;
+        if (VFXManager.Instance != null)
+        {
+            VFXManager.Instance.ClearAllConfetti();
+        }
+
         if (GameManager.Instance != null)
         {
             GameManager.Instance.RestartGame();

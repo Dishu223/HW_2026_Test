@@ -1,9 +1,11 @@
 ﻿using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
 /// Fully Configurable Particle VFX & Game Juice Manager:
-/// - Custom Confetti / Milestone Prefab slot with full useUnscaledTime support (animates smoothly even while game is paused!)
+/// - Custom Confetti / Milestone Prefab slot with full useUnscaledTime support
+/// - Automatically CLEANS UP / STOPS all active confetti instances the moment the game is resumed or restarted!
 /// - Platform Spawn Edge Dust: Shoots strictly OUTWARD horizontally from downside perimeter edges
 /// - Inspector-exposed tuning parameters (colors, sizes, speeds, particle counts)
 /// </summary>
@@ -59,6 +61,7 @@ public class VFXManager : MonoBehaviour
     private ParticleSystem chronoSparklePS;
     private ParticleSystem milestoneConfettiPS;
 
+    private List<GameObject> activeConfettiInstances = new List<GameObject>();
     private Material defaultParticleMaterial;
 
     private void Awake()
@@ -82,6 +85,9 @@ public class VFXManager : MonoBehaviour
         GameEvents.OnRewindComplete += HandleRewindComplete;
         GameEvents.OnMilestoneReached += HandleMilestoneReached;
         GameEvents.OnGameVictory += HandleGameVictory;
+        GameEvents.OnGameStart += ClearAllConfetti;
+        GameEvents.OnGameRestart += ClearAllConfetti;
+        GameEvents.OnReturnToLobby += ClearAllConfetti;
     }
 
     private void OnDisable()
@@ -92,6 +98,9 @@ public class VFXManager : MonoBehaviour
         GameEvents.OnRewindComplete -= HandleRewindComplete;
         GameEvents.OnMilestoneReached -= HandleMilestoneReached;
         GameEvents.OnGameVictory -= HandleGameVictory;
+        GameEvents.OnGameStart -= ClearAllConfetti;
+        GameEvents.OnGameRestart -= ClearAllConfetti;
+        GameEvents.OnReturnToLobby -= ClearAllConfetti;
     }
 
     private void CreateDefaultParticleMaterial()
@@ -237,7 +246,6 @@ public class VFXManager : MonoBehaviour
             float t = (float)i / (particlesPerEdge - 1);
             float offset = Mathf.Lerp(-halfDim, halfDim, t);
 
-            // Front Edge (+Z)
             spawnEdgeDustPS.Emit(new ParticleSystem.EmitParams
             {
                 position = new Vector3(platformCenter.x + offset, bottomY, platformCenter.z + halfDim),
@@ -247,7 +255,6 @@ public class VFXManager : MonoBehaviour
                 startLifetime = spawnEdgeParticleLifetime
             }, 1);
 
-            // Back Edge (-Z)
             spawnEdgeDustPS.Emit(new ParticleSystem.EmitParams
             {
                 position = new Vector3(platformCenter.x + offset, bottomY, platformCenter.z - halfDim),
@@ -257,7 +264,6 @@ public class VFXManager : MonoBehaviour
                 startLifetime = spawnEdgeParticleLifetime
             }, 1);
 
-            // Right Edge (+X)
             spawnEdgeDustPS.Emit(new ParticleSystem.EmitParams
             {
                 position = new Vector3(platformCenter.x + halfDim, bottomY, platformCenter.z + offset),
@@ -267,7 +273,6 @@ public class VFXManager : MonoBehaviour
                 startLifetime = spawnEdgeParticleLifetime
             }, 1);
 
-            // Left Edge (-X)
             spawnEdgeDustPS.Emit(new ParticleSystem.EmitParams
             {
                 position = new Vector3(platformCenter.x - halfDim, bottomY, platformCenter.z + offset),
@@ -311,11 +316,13 @@ public class VFXManager : MonoBehaviour
         if (customMilestoneConfettiPrefab != null)
         {
             GameObject confettiObj = Instantiate(customMilestoneConfettiPrefab, position + Vector3.up * 1.5f, Quaternion.identity);
+            activeConfettiInstances.Add(confettiObj);
+
             ParticleSystem[] systems = confettiObj.GetComponentsInChildren<ParticleSystem>();
             foreach (var ps in systems)
             {
                 var main = ps.main;
-                main.useUnscaledTime = true; // Plays smoothly while Time.timeScale = 0!
+                main.useUnscaledTime = true;
                 ps.Play();
             }
             StartCoroutine(DestroyRealtimeCoroutine(confettiObj, 8f));
@@ -329,10 +336,37 @@ public class VFXManager : MonoBehaviour
         }
     }
 
+    public void ClearAllConfetti()
+    {
+        // Stop and clear all active confetti objects
+        for (int i = activeConfettiInstances.Count - 1; i >= 0; i--)
+        {
+            if (activeConfettiInstances[i] != null)
+            {
+                ParticleSystem[] systems = activeConfettiInstances[i].GetComponentsInChildren<ParticleSystem>();
+                foreach (var ps in systems)
+                {
+                    ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                }
+                Destroy(activeConfettiInstances[i]);
+            }
+        }
+        activeConfettiInstances.Clear();
+
+        if (milestoneConfettiPS != null)
+        {
+            milestoneConfettiPS.Clear();
+        }
+    }
+
     private IEnumerator DestroyRealtimeCoroutine(GameObject obj, float realtimeSeconds)
     {
         yield return new WaitForSecondsRealtime(realtimeSeconds);
-        if (obj != null) Destroy(obj);
+        if (obj != null)
+        {
+            activeConfettiInstances.Remove(obj);
+            Destroy(obj);
+        }
     }
     #endregion
 
