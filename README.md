@@ -14,12 +14,12 @@
 | In-Game Action & Platform Lifecycles | 360° Circular HSV Character Studio |
 | :---: | :---: |
 | <img src="./screenshots%20and%20videos/Screenshot%202026-08-21%20203822.png" width="100%" alt="In-Game Action & Timers" /> | <img src="./screenshots%20and%20videos/Screenshot%202026-08-21%20203804.png" width="100%" alt="360 HSV Character Studio" /> |
-| *Active pulpit countdowns, score tracker & rewind charges* | *Live 360° HSV color wheel & 3D character customization* |
+| *Active pulpit countdowns, Character dashing, score tracker & rewind charges* | *Live 360° HSV color wheel & 3D character customization* |
 
 | Start Screen & Lobby UI | Game Over & Time Rewind Overlay |
 | :---: | :---: |
 | <img src="./screenshots%20and%20videos/Screenshot%202026-08-21%20091530.png" width="100%" alt="Start Screen & Lobby" /> | <img src="./screenshots%20and%20videos/Screenshot%202026-08-21%20202141.png" width="100%" alt="Game Over & Stats" /> |
-| *Arcade lobby with custom character preview* | *Post-run stats summary & rewind indicator* |
+| *Arcade lobby with custom character preview* | *Unity Editor view* |
 
 ### 🎥 Full Gameplay & Rewind Video Demonstration
 > 🎬 **Watch the full gameplay and rewind system in action**: [`Screen Recording 2026-08-21 202615.mp4`](./screenshots%20and%20videos/Screen%20Recording%202026-08-21%20202615.mp4)
