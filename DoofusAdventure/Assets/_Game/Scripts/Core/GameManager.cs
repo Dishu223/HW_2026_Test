@@ -2,7 +2,7 @@
 
 /// <summary>
 /// Central Game State Machine and Coordinator.
-/// Ensures all managers (ScoreManager, SoundManager, VFXManager, RewindManager) are active and synchronized.
+/// Ensures all managers (ScoreManager, SoundManager, VFXManager, RewindManager, CuteEnvironmentManager) are active and synchronized.
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -32,6 +32,12 @@ public class GameManager : MonoBehaviour
             return;
         }
         Instance = this;
+
+        if (FindAnyObjectByType<CuteEnvironmentManager>() == null)
+        {
+            GameObject envObj = new GameObject("CuteEnvironmentManager");
+            envObj.AddComponent<CuteEnvironmentManager>();
+        }
 
         if (FindAnyObjectByType<VFXManager>() == null)
         {
@@ -68,44 +74,23 @@ public class GameManager : MonoBehaviour
         GameEvents.OnRewindComplete -= HandleRewindComplete;
     }
 
-    public void StartGame()
+    private void Start()
     {
-        SetState(GameState.Playing);
-        GameEvents.TriggerGameStart();
-    }
-
-    public void RestartGame()
-    {
-        SetState(GameState.Playing);
-        GameEvents.TriggerGameRestart();
+        // Boot directly in StartScreen state
+        SetState(GameState.StartScreen);
     }
 
     public void SetState(GameState newState)
     {
-        if (currentState == newState) return;
-
         currentState = newState;
         Debug.Log($"[GameManager] State changed to: {newState}");
-
-        switch (newState)
-        {
-            case GameState.StartScreen:
-                break;
-            case GameState.Playing:
-                break;
-            case GameState.Rewinding:
-                break;
-            case GameState.GameOver:
-                GameEvents.TriggerGameOver();
-                break;
-        }
     }
 
     private void HandleGameStart() => SetState(GameState.Playing);
-    private void HandleGameOver() => SetState(GameState.GameOver);
+    private void HandleGameOver(int finalScore) => SetState(GameState.GameOver);
     private void HandleGameRestart() => SetState(GameState.Playing);
-    private void HandleReturnToLobby() => SetState(GameState.StartScreen);
-    private void HandleDoofusFell() => SetState(GameState.GameOver);
+    private void HandleReturnToLobby() => SetState(GameState.Lobby);
+    private void HandleDoofusFell() => Debug.Log("[GameManager] Doofus fell into the abyss!");
     private void HandleRewindStart() => SetState(GameState.Rewinding);
     private void HandleRewindComplete() => SetState(GameState.Playing);
 }
