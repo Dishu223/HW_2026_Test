@@ -7,12 +7,11 @@ using UnityEngine.Rendering.Universal;
 using UnityEngine.UI;
 
 /// <summary>
-/// Retro VHS Time Rewind & Glitch Screen FX:
-/// - Full-Screen CRT scanlines across entire UI Canvas
-/// - Full-Width RGB Glitch Slices (Vivid Red / Electric Cyan) spanning 100% edge-to-edge
-/// - Full-Width VHS Tape Tracking Noise Bar rolling down the screen
-/// - URP Post-Processing Chromatic Aberration & Lens Distortion
-/// - Centered Fredoka Time Rewind / Resume prompts
+/// Subtle Retro VHS Time Rewind Screen FX:
+/// - Delicate, soft CRT scanlines across full viewport
+/// - Thin, subtle RGB chromatic glitch micro-lines during reverse motion (soft 0.15 alpha)
+/// - Fades out FAST the instant "PRESS WASD TO RESUME" appears for 100% crystal clear landing view!
+/// - Gentle URP Chromatic Aberration & subtle lens warp
 /// </summary>
 [RequireComponent(typeof(CanvasGroup))]
 public class RewindScreenUI : MonoBehaviour
@@ -23,7 +22,8 @@ public class RewindScreenUI : MonoBehaviour
 
     private CanvasGroup canvasGroup;
     private bool isOverlayActive = false;
-    private float fadeSpeed = 8f;
+    private bool isRewindingRush = false;
+    private float fadeSpeed = 9f;
 
     // Post-Processing
     private Volume volume;
@@ -31,7 +31,7 @@ public class RewindScreenUI : MonoBehaviour
     private LensDistortion lensDistortion;
     private Vignette vignette;
 
-    // Glitch Elements (Built inside Rewind_Panel for 100% true full-screen scaling)
+    // Glitch Elements
     private RawImage scanlineImage;
     private RectTransform trackingBarRT;
     private RawImage trackingBarImage;
@@ -84,7 +84,7 @@ public class RewindScreenUI : MonoBehaviour
         scanlineTexture = GenerateScanlineTexture(64, 64);
         noiseTexture = GenerateNoiseTexture(128, 128);
 
-        // 1. Full-Screen CRT Scanlines
+        // 1. Full-Screen Delicate CRT Scanlines
         Transform existingScan = transform.Find("CRT_Scanlines");
         if (existingScan == null)
         {
@@ -100,12 +100,12 @@ public class RewindScreenUI : MonoBehaviour
 
             scanlineImage = scanObj.AddComponent<RawImage>();
             scanlineImage.texture = scanlineTexture;
-            scanlineImage.uvRect = new Rect(0, 0, 1, 35);
-            scanlineImage.color = new Color(0f, 0.95f, 1f, 0.25f);
+            scanlineImage.uvRect = new Rect(0, 0, 1, 40);
+            scanlineImage.color = new Color(0f, 0.90f, 1f, 0.08f); // Soft, subtle scanlines
             scanlineImage.raycastTarget = false;
         }
 
-        // 2. Full-Width VHS Tape Tracking Noise Bar (100% edge-to-edge)
+        // 2. Full-Width VHS Tape Tracking Noise Bar (Soft translucent band)
         Transform existingTrack = transform.Find("VHS_Tracking_Bar");
         if (existingTrack == null)
         {
@@ -116,18 +116,18 @@ public class RewindScreenUI : MonoBehaviour
             trackingBarRT = trackObj.AddComponent<RectTransform>();
             trackingBarRT.anchorMin = new Vector2(0f, 0.5f);
             trackingBarRT.anchorMax = new Vector2(1f, 0.5f);
-            trackingBarRT.offsetMin = new Vector2(0f, -40f);
-            trackingBarRT.offsetMax = new Vector2(0f, 40f);
+            trackingBarRT.offsetMin = new Vector2(0f, -25f);
+            trackingBarRT.offsetMax = new Vector2(0f, 25f);
 
             trackingBarImage = trackObj.AddComponent<RawImage>();
             trackingBarImage.texture = noiseTexture;
             trackingBarImage.uvRect = new Rect(0, 0, 12, 1);
-            trackingBarImage.color = new Color(1f, 1f, 1f, 0.55f);
+            trackingBarImage.color = new Color(1f, 1f, 1f, 0.12f); // Soft noise
             trackingBarImage.raycastTarget = false;
         }
 
-        // 3. Dynamic Full-Width RGB Chromatic Tear Strips (100% edge-to-edge)
-        for (int i = 0; i < 6; i++)
+        // 3. Delicate RGB Chromatic Micro-Strips
+        for (int i = 0; i < 5; i++)
         {
             string stripName = $"RGB_Glitch_Strip_{i}";
             Transform existingStrip = transform.Find(stripName);
@@ -140,8 +140,8 @@ public class RewindScreenUI : MonoBehaviour
             RectTransform stripRT = stripObj.AddComponent<RectTransform>();
             stripRT.anchorMin = new Vector2(0f, 0.5f);
             stripRT.anchorMax = new Vector2(1f, 0.5f);
-            stripRT.offsetMin = new Vector2(0f, -20f);
-            stripRT.offsetMax = new Vector2(0f, 20f);
+            stripRT.offsetMin = new Vector2(0f, -8f);
+            stripRT.offsetMax = new Vector2(0f, 8f);
 
             Image stripImg = stripObj.AddComponent<Image>();
             stripImg.color = Color.clear;
@@ -151,7 +151,6 @@ public class RewindScreenUI : MonoBehaviour
             glitchStripImages.Add(stripImg);
         }
 
-        // Ensure text is on top of all glitch layers
         if (rewindBannerText != null)
         {
             rewindBannerText.transform.SetAsLastSibling();
@@ -167,8 +166,8 @@ public class RewindScreenUI : MonoBehaviour
         Color[] pixels = new Color[width * height];
         for (int y = 0; y < height; y++)
         {
-            bool isStripe = (y % 3) == 0;
-            Color col = isStripe ? new Color(0f, 0f, 0f, 0.55f) : new Color(0f, 0.85f, 1f, 0.12f);
+            bool isStripe = (y % 4) == 0;
+            Color col = isStripe ? new Color(0f, 0f, 0f, 0.25f) : new Color(0f, 0.85f, 1f, 0.05f);
             for (int x = 0; x < width; x++) pixels[y * width + x] = col;
         }
         tex.SetPixels(pixels);
@@ -185,8 +184,8 @@ public class RewindScreenUI : MonoBehaviour
         Color[] pixels = new Color[width * height];
         for (int i = 0; i < pixels.Length; i++)
         {
-            float val = Random.value > 0.35f ? Random.Range(0.6f, 1f) : 0f;
-            pixels[i] = new Color(val, val, val, val * 0.65f);
+            float val = Random.value > 0.45f ? Random.Range(0.4f, 0.8f) : 0f;
+            pixels[i] = new Color(val, val, val, val * 0.25f);
         }
         tex.SetPixels(pixels);
         tex.Apply();
@@ -214,7 +213,8 @@ public class RewindScreenUI : MonoBehaviour
     private void HandleRewindStart()
     {
         isOverlayActive = true;
-        trackingBarY = 400f;
+        isRewindingRush = true;
+        trackingBarY = 350f;
 
         if (rewindBannerText != null)
         {
@@ -222,33 +222,55 @@ public class RewindScreenUI : MonoBehaviour
             rewindBannerText.color = new Color(0f, 0.95f, 1f, 1f);
         }
 
-        if (chromaticAberration != null) chromaticAberration.intensity.value = 1.0f;
-        if (lensDistortion != null) lensDistortion.intensity.value = -0.30f;
+        if (scanlineImage != null) scanlineImage.color = new Color(0f, 0.90f, 1f, 0.08f);
+        if (trackingBarImage != null) trackingBarImage.color = new Color(1f, 1f, 1f, 0.12f);
+
+        if (chromaticAberration != null) chromaticAberration.intensity.value = 0.45f;
+        if (lensDistortion != null) lensDistortion.intensity.value = -0.12f;
     }
 
     private void HandleReadyToResume()
     {
         isOverlayActive = true;
+        isRewindingRush = false; // Fast clear glitch elements immediately!
+
+        ClearGlitchElements();
+
         if (rewindBannerText != null)
         {
             rewindBannerText.text = ">> PRESS WASD OR SPACE TO RESUME <<";
             rewindBannerText.color = Color.white;
         }
 
-        if (chromaticAberration != null) chromaticAberration.intensity.value = 0.40f;
-        if (lensDistortion != null) lensDistortion.intensity.value = -0.10f;
+        if (chromaticAberration != null) chromaticAberration.intensity.value = 0f;
+        if (lensDistortion != null) lensDistortion.intensity.value = 0f;
     }
 
     private void HandleRewindComplete()
     {
         isOverlayActive = false;
+        isRewindingRush = false;
+        ClearGlitchElements();
         if (chromaticAberration != null) chromaticAberration.intensity.value = 0f;
         if (lensDistortion != null) lensDistortion.intensity.value = 0f;
+    }
+
+    private void ClearGlitchElements()
+    {
+        for (int i = 0; i < glitchStripImages.Count; i++)
+        {
+            if (glitchStripImages[i] != null) glitchStripImages[i].color = Color.clear;
+        }
+        if (scanlineImage != null) scanlineImage.color = Color.clear;
+        if (trackingBarImage != null) trackingBarImage.color = Color.clear;
     }
 
     public void HideImmediate()
     {
         isOverlayActive = false;
+        isRewindingRush = false;
+        ClearGlitchElements();
+
         if (canvasGroup != null)
         {
             canvasGroup.alpha = 0f;
@@ -266,43 +288,43 @@ public class RewindScreenUI : MonoBehaviour
         canvasGroup.alpha = Mathf.MoveTowards(canvasGroup.alpha, targetAlpha, Time.unscaledDeltaTime * fadeSpeed);
         canvasGroup.blocksRaycasts = false;
 
-        if (!isOverlayActive) return;
+        if (!isOverlayActive || !isRewindingRush) return;
 
-        // 1. Roll Scanlines
+        // 1. Roll Scanlines softly
         if (scanlineImage != null)
         {
             Rect uv = scanlineImage.uvRect;
-            uv.y -= Time.unscaledDeltaTime * 14f;
+            uv.y -= Time.unscaledDeltaTime * 10f;
             scanlineImage.uvRect = uv;
         }
 
-        // 2. Move Full-Width Tracking Bar down the screen
-        trackingBarY -= Time.unscaledDeltaTime * 380f;
-        if (trackingBarY < -500f) trackingBarY = 500f;
+        // 2. Move Soft Tracking Bar
+        trackingBarY -= Time.unscaledDeltaTime * 320f;
+        if (trackingBarY < -450f) trackingBarY = 450f;
 
         if (trackingBarRT != null)
         {
-            trackingBarRT.offsetMin = new Vector2(0f, trackingBarY - 40f);
-            trackingBarRT.offsetMax = new Vector2(0f, trackingBarY + 40f);
+            trackingBarRT.offsetMin = new Vector2(0f, trackingBarY - 25f);
+            trackingBarRT.offsetMax = new Vector2(0f, trackingBarY + 25f);
         }
 
-        // 3. Jitter Full-Width Edge-to-Edge RGB Glitch Slices (Vivid Red & Vivid Cyan)
+        // 3. Subtle RGB Micro-Strips (Light, delicate 0.12-0.22 alpha)
         for (int i = 0; i < glitchStrips.Count; i++)
         {
             if (glitchStrips[i] != null && glitchStripImages[i] != null)
             {
-                if (Random.value < 0.35f)
+                if (Random.value < 0.25f)
                 {
-                    float y = Random.Range(-400f, 400f);
-                    float h = Random.Range(18f, 55f);
-                    float xJitter = Random.Range(-30f, 30f);
+                    float y = Random.Range(-380f, 380f);
+                    float h = Random.Range(4f, 14f); // Thin delicate lines
+                    float xJitter = Random.Range(-15f, 15f);
 
                     glitchStrips[i].offsetMin = new Vector2(xJitter, y - h * 0.5f);
                     glitchStrips[i].offsetMax = new Vector2(xJitter, y + h * 0.5f);
 
                     Color col = (i % 2 == 0)
-                        ? new Color(1f, 0.05f, 0.40f, Random.Range(0.35f, 0.75f))  // Vivid Red
-                        : new Color(0f, 0.95f, 1f, Random.Range(0.35f, 0.75f)); // Vivid Cyan
+                        ? new Color(1f, 0.05f, 0.40f, Random.Range(0.10f, 0.22f))  // Subtle Red
+                        : new Color(0f, 0.95f, 1f, Random.Range(0.10f, 0.22f)); // Subtle Cyan
 
                     glitchStripImages[i].color = col;
                 }
