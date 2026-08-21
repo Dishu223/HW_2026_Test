@@ -4,7 +4,10 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Self-contained Game Over & Victory Celebration Screen with Endless Mode continuation and restart triggers.
+/// Self-contained Game Over & Victory Celebration Screen:
+/// - Automatically PAUSES the game physics/world (Time.timeScale = 0f) at Game Over & Victory!
+/// - Resumes time (Time.timeScale = 1f) when restarting or continuing Endless Mode
+/// - Smooth animated score ticker and robust Space / R / Click triggers
 /// </summary>
 [RequireComponent(typeof(CanvasGroup))]
 public class GameOverUI : MonoBehaviour
@@ -60,6 +63,7 @@ public class GameOverUI : MonoBehaviour
 
     private void HandleGameStart()
     {
+        Time.timeScale = 1f;
         HidePanelImmediate();
     }
 
@@ -67,6 +71,7 @@ public class GameOverUI : MonoBehaviour
     {
         isPanelActive = true;
         timer = 0f;
+        Time.timeScale = 0f; // PAUSE GAMEPLAY
 
         if (canvasGroup != null)
         {
@@ -105,6 +110,7 @@ public class GameOverUI : MonoBehaviour
     {
         isPanelActive = true;
         timer = 0f;
+        Time.timeScale = 0f; // PAUSE GAMEPLAY
 
         if (canvasGroup != null)
         {
@@ -125,6 +131,7 @@ public class GameOverUI : MonoBehaviour
     {
         isPanelActive = false;
         isVictoryMode = false;
+        Time.timeScale = 1f; // UNPAUSE GAMEPLAY
 
         if (canvasGroup != null)
         {
@@ -152,7 +159,6 @@ public class GameOverUI : MonoBehaviour
 
         if (isVictoryMode)
         {
-            // In victory screen: Space or click continues into Endless Mode!
             if (spacePressed || mouseClicked)
             {
                 ContinueEndlessMode();
@@ -164,7 +170,6 @@ public class GameOverUI : MonoBehaviour
         }
         else
         {
-            // In Game Over: Space, R, or click restarts
             if (rPressed || spacePressed || mouseClicked)
             {
                 RestartGame();
@@ -174,7 +179,6 @@ public class GameOverUI : MonoBehaviour
 
     private void ContinueEndlessMode()
     {
-        // Smoothly hide victory panel so player continues endless run!
         HidePanelImmediate();
     }
 
@@ -219,6 +223,7 @@ public class GameOverUI : MonoBehaviour
 
     public void RestartGame()
     {
+        Time.timeScale = 1f;
         if (GameManager.Instance != null)
         {
             GameManager.Instance.RestartGame();
