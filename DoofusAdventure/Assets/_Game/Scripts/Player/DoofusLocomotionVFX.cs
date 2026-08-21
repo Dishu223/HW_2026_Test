@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -86,8 +86,8 @@ public class DoofusLocomotionVFX : MonoBehaviour
                 stepTimer = 0f;
                 SpawnRunningPuff();
 
-                // Trigger alternating Left / Right Boop sound!
-                if (SoundManager.Instance != null)
+                // Trigger alternating Left / Right Boop sound (disabled during Dash!)
+                if (!controller.IsDashing && SoundManager.Instance != null)
                 {
                     SoundManager.Instance.PlayFootstep(isLeftFoot);
                 }

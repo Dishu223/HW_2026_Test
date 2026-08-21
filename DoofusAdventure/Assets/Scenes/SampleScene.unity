@@ -1358,15 +1358,17 @@ MonoBehaviour:
   inGameBGMClip: {fileID: 8300000, guid: c659f1a038eeb1842947cad50325ed2c, type: 3}
   customFootstepLeftClip: {fileID: 8300000, guid: 94e029faa85dabc4a831b6814b0ace87, type: 3}
   customFootstepRightClip: {fileID: 8300000, guid: 62b0257578b2a3749b91920f89e158e5, type: 3}
+  customDashClip: {fileID: 8300000, guid: 62ba1c57b1a125f4aa5e1cca47303097, type: 3}
+  customPlatformSpawnClip: {fileID: 8300000, guid: 5707e88b5cad75642923c1949cb55537, type: 3}
   customLandingClip: {fileID: 8300000, guid: 7ed52958b1d79614b8d855a3b1b1c8de, type: 3}
-  customShatterClip: {fileID: 0}
+  customShatterClip: {fileID: 8300000, guid: e26e5f1590f3d6240abad9593167943b, type: 3}
   customRewindClip: {fileID: 8300000, guid: c65b79a5de395504cb2c4b3d55c74f34, type: 3}
   customResumeClip: {fileID: 8300000, guid: cd4e34fc684e7c749863690ec54f4fa3, type: 3}
   customMilestoneClip: {fileID: 8300000, guid: 28a12b8c0d6c55d44ac7b7e05d955bd5, type: 3}
   customVictoryClip: {fileID: 8300000, guid: 46aa107dfc9f2ab42b32a178e59af169, type: 3}
   customGameOverClip: {fileID: 8300000, guid: 9d4e3c3bc4398a643a6a1068a4b7350a, type: 3}
   masterVolume: 0.85
-  bgmVolume: 0.65
+  bgmVolume: 0.5
   sfxVolume: 0.9
 --- !u!4 &1212819721
 Transform:
