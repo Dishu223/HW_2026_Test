@@ -1,4 +1,4 @@
-﻿%YAML 1.1
+%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!29 &1
 OcclusionCullingSettings:
@@ -494,6 +494,10 @@ MonoBehaviour:
   target: {fileID: 253212686}
   defaultOffset: {x: 0, y: 11, z: -13}
   positionSmoothTime: 0.25
+  bankAngleMax: 2.4
+  pitchLagMax: 1.8
+  swaySmoothTime: 0.2
+  idleBreathingAmplitude: 0.35
   rewindZoomFactor: 0.75
   zoomSmoothTime: 0.4
   shakeDamping: 10
@@ -554,7 +558,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: '<< TIME REWIND <<'
+  m_text: << TIME REWIND <<
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 507c0f18b84a588429e47896a1b513c7, type: 2}
   m_sharedMaterial: {fileID: 687055455}
@@ -2345,14 +2349,14 @@ RectTransform:
   m_GameObject: {fileID: 1775503514}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 2.06, y: 2.06, z: 2.06}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 934251652}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 180}
+  m_AnchoredPosition: {x: 0, y: 342.6}
   m_SizeDelta: {x: 900, y: 120}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1775503516

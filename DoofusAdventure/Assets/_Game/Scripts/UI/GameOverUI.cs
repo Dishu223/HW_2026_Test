@@ -110,15 +110,17 @@ public class GameOverUI : MonoBehaviour
     {
         int score = ScoreManager.Instance != null ? ScoreManager.Instance.CurrentScore : 0;
         int best = ScoreManager.Instance != null ? ScoreManager.Instance.HighScore : score;
+        int goal = ScoreManager.Instance != null ? ScoreManager.Instance.TargetGoal : 50;
 
         if (bestScoreText != null)
             bestScoreText.text = $"BEST: {best}";
 
         if (victoryBannerText != null)
         {
-            victoryBannerText.gameObject.SetActive(score >= 50);
-            if (score >= 50)
-                victoryBannerText.text = "*** 50 PULPITS REACHED! CHALLENGE COMPLETE! ***";
+            bool isWon = score >= goal;
+            victoryBannerText.gameObject.SetActive(isWon);
+            if (isWon)
+                victoryBannerText.text = $"*** {goal} PULPITS REACHED! CHALLENGE COMPLETE! ***";
         }
 
         if (scoreTickerRoutine != null) StopCoroutine(scoreTickerRoutine);
@@ -145,8 +147,6 @@ public class GameOverUI : MonoBehaviour
 
     public void RestartGame()
     {
-        HideGameOverImmediate();
-
         if (GameManager.Instance != null)
         {
             GameManager.Instance.RestartGame();

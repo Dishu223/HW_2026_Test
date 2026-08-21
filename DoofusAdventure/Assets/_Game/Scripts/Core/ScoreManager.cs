@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 
 /// <summary>
-/// Manages player score progression, milestone triggers (10, 25, 50),
+/// Manages player score progression, milestone triggers (10, 25, 50 or custom targetGoal),
 /// and high score persistence via PlayerPrefs.
 /// </summary>
 public class ScoreManager : MonoBehaviour
@@ -9,7 +9,8 @@ public class ScoreManager : MonoBehaviour
     public static ScoreManager Instance { get; private set; }
 
     [Header("Score Configuration")]
-    [SerializeField] private int targetGoal = 50;
+    [Tooltip("Target goal to trigger victory celebration. Set to 5 for quick testing or 50 for full challenge!")]
+    [SerializeField] private int targetGoal = 5;
 
     private int currentScore = 0;
     private int highScore = 0;
@@ -17,7 +18,11 @@ public class ScoreManager : MonoBehaviour
 
     public int CurrentScore => currentScore;
     public int HighScore => highScore;
-    public int TargetGoal => targetGoal;
+    public int TargetGoal
+    {
+        get => targetGoal;
+        set => targetGoal = value;
+    }
     public bool IsGoalCompleted => currentScore >= targetGoal;
 
     private void Awake()
@@ -31,7 +36,6 @@ public class ScoreManager : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
 
-        // Load saved high score from local storage
         highScore = PlayerPrefs.GetInt(HIGH_SCORE_KEY, 0);
     }
 
@@ -56,13 +60,13 @@ public class ScoreManager : MonoBehaviour
         currentScore++;
         GameEvents.TriggerScoreChanged(currentScore);
 
-        // Check milestones
-        if (currentScore == 10 || currentScore == 25 || currentScore == 50)
+        // Check milestones or target goal completion (e.g. 5, 10, 25, 50)
+        if (currentScore == targetGoal || currentScore == 10 || currentScore == 25 || currentScore == 50)
         {
+            Debug.Log($"[ScoreManager] Milestone reached: {currentScore}! Victory goal: {targetGoal}");
             GameEvents.TriggerMilestoneReached(currentScore);
         }
 
-        // Update high score in real-time if beaten
         if (currentScore > highScore)
         {
             highScore = currentScore;
@@ -77,7 +81,6 @@ public class ScoreManager : MonoBehaviour
 
     private void HandleGameOver()
     {
-        // Persist best score to PlayerPrefs
         if (currentScore >= highScore)
         {
             highScore = currentScore;
