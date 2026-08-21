@@ -2606,7 +2606,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b9d5f3a179857fb4b84db1c49b007b81, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VFXManager
-  customVictoryConfettiPrefab: {fileID: 0}
+  customVictoryConfettiPrefab: {fileID: 1362493524017004345, guid: 6f9dd2f006b77264fa5c745f71504d49, type: 3}
   customSpawnPuffPrefab: {fileID: 0}
   customLandingRingPrefab: {fileID: 0}
   customCrumbleDustPrefab: {fileID: 0}
