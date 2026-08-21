@@ -1,13 +1,11 @@
 ﻿using System.Collections;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 /// <summary>
-/// Retro Arcade In-Game HUD Controller:
-/// - Crisp, high-visibility Fredoka typography
-/// - Guaranteed single-line layout (word-wrapping strictly disabled)
-/// - Clean readable Score and Rewind charges display
+/// In-Game HUD Controller:
+/// - 100% respects all your custom Inspector settings: Font Size, Alignment, Colors, Positions, Sizes!
+/// - Only updates the text string values dynamically during gameplay.
 /// </summary>
 [RequireComponent(typeof(CanvasGroup))]
 public class HUDController : MonoBehaviour
@@ -32,48 +30,7 @@ public class HUDController : MonoBehaviour
             gameObject.AddComponent<RewindGlitchFX>();
         }
 
-        ConfigureTextProperties();
         HideHUD();
-    }
-
-    private void Start()
-    {
-        ConfigureTextProperties();
-    }
-
-    private void ConfigureTextProperties()
-    {
-        if (scoreText != null)
-        {
-            scoreText.enableWordWrapping = false;
-            scoreText.overflowMode = TextOverflowModes.Overflow;
-            scoreText.alignment = TextAlignmentOptions.Center;
-            scoreText.fontSize = 32f;
-            scoreText.color = Color.white;
-
-            RectTransform rt = scoreText.rectTransform;
-            if (rt.sizeDelta.x < 350f) rt.sizeDelta = new Vector2(350f, 60f);
-        }
-
-        if (highScoreText != null)
-        {
-            highScoreText.enableWordWrapping = false;
-            highScoreText.overflowMode = TextOverflowModes.Overflow;
-            highScoreText.fontSize = 20f;
-            highScoreText.color = Color.white;
-        }
-
-        if (rewindChargesText != null)
-        {
-            rewindChargesText.enableWordWrapping = false;
-            rewindChargesText.overflowMode = TextOverflowModes.Overflow;
-            rewindChargesText.alignment = TextAlignmentOptions.Right;
-            rewindChargesText.fontSize = 24f;
-            rewindChargesText.color = Color.white;
-
-            RectTransform rt = rewindChargesText.rectTransform;
-            if (rt.sizeDelta.x < 350f) rt.sizeDelta = new Vector2(350f, 60f);
-        }
     }
 
     private void OnEnable()
@@ -102,7 +59,6 @@ public class HUDController : MonoBehaviour
             canvasGroup.interactable = true;
             canvasGroup.blocksRaycasts = true;
         }
-        ConfigureTextProperties();
         UpdateScoreDisplay(0);
         UpdateChargesDisplay(3, 3);
     }
@@ -121,19 +77,19 @@ public class HUDController : MonoBehaviour
     {
         if (scoreText != null)
         {
-            // Crisp, high-contrast neon yellow label + bright white score
-            scoreText.text = $"<color=#FFE600>SCORE</color> : <color=#FFFFFF>{newScore}</color>";
+            // Only update text content - does NOT override your Inspector Font Size, Color, or Alignment!
+            scoreText.text = $"SCORE : {newScore}";
 
             if (gameObject.activeInHierarchy && canvasGroup != null && canvasGroup.alpha > 0.5f)
             {
                 if (scorePunchRoutine != null) StopCoroutine(scorePunchRoutine);
-                scorePunchRoutine = StartCoroutine(PunchScale(scoreText.transform, 1.22f, 0.16f));
+                scorePunchRoutine = StartCoroutine(PunchScale(scoreText.transform, 1.20f, 0.15f));
             }
         }
 
         if (highScoreText != null && ScoreManager.Instance != null)
         {
-            highScoreText.text = $"<color=#94A3B8>BEST</color> : <color=#00E5FF>{ScoreManager.Instance.HighScore}</color>";
+            highScoreText.text = $"BEST : {ScoreManager.Instance.HighScore}";
         }
     }
 
@@ -141,17 +97,17 @@ public class HUDController : MonoBehaviour
     {
         if (rewindChargesText == null) return;
 
-        // Clean ASCII Segmented Charges (100% font-safe across all fonts)
+        // Clean ASCII charge indicators
         string batterySegments = "";
         for (int i = 0; i < max; i++)
         {
             if (i < current)
-                batterySegments += "<color=#00E5FF>/</color> "; // Neon cyan slash
+                batterySegments += "/ ";
             else
-                batterySegments += "<color=#475569>.</color> "; // Dim slate dot
+                batterySegments += ". ";
         }
 
-        rewindChargesText.text = $"<color=#00E5FF>REWIND</color>  [ {batterySegments.Trim()} ]";
+        rewindChargesText.text = $"REWIND [ {batterySegments.Trim()} ]";
     }
 
     private IEnumerator PunchScale(Transform target, float punchScale, float duration)
