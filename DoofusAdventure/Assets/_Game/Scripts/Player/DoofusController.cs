@@ -117,7 +117,10 @@ public class DoofusController : MonoBehaviour
             }
             else
             {
+                fallGraceCooldown = 5.0f; // Block repeated calls
+                isInputActive = false;
                 GameEvents.TriggerDoofusFell();
+                GameEvents.TriggerGameOver();
             }
         }
     }
@@ -133,7 +136,6 @@ public class DoofusController : MonoBehaviour
         else
             dashDirection = transform.forward;
 
-        // Play Dash Sound Effect!
         if (SoundManager.Instance != null)
         {
             SoundManager.Instance.PlayDashSound();

@@ -36,6 +36,7 @@ public class GameOverUI : MonoBehaviour
     private void OnEnable()
     {
         GameEvents.OnGameOver += HandleGameOver;
+        GameEvents.OnDoofusFell += HandleGameOver;
         GameEvents.OnGameVictory += HandleGameVictory;
         GameEvents.OnGameStart += HandleGameStart;
         GameEvents.OnGameRestart += HandleGameStart;
@@ -44,6 +45,7 @@ public class GameOverUI : MonoBehaviour
     private void OnDisable()
     {
         GameEvents.OnGameOver -= HandleGameOver;
+        GameEvents.OnDoofusFell -= HandleGameOver;
         GameEvents.OnGameVictory -= HandleGameVictory;
         GameEvents.OnGameStart -= HandleGameStart;
         GameEvents.OnGameRestart -= HandleGameStart;
@@ -179,7 +181,6 @@ public class GameOverUI : MonoBehaviour
 
     private void ContinueEndlessMode()
     {
-        // Stop emitting new confetti but let active particles complete their natural flutter/fall!
         if (VFXManager.Instance != null)
         {
             VFXManager.Instance.StopConfettiEmittingNaturally();

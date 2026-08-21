@@ -1,8 +1,7 @@
 ﻿using UnityEngine;
 
 /// <summary>
-/// Central Game State Machine and Coordinator.
-/// Ensures all managers (ScoreManager, SoundManager, VFXManager, RewindManager, CuteEnvironmentManager) are active and synchronized.
+/// Central game coordinator managing states: StartScreen, Playing, GameOver, Rewinding, Lobby.
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -11,18 +10,19 @@ public class GameManager : MonoBehaviour
     public enum GameState
     {
         StartScreen,
-        Lobby,
         Playing,
+        GameOver,
         Rewinding,
-        GameOver
+        Lobby
     }
 
-    [Header("Game State")]
+    [Header("Current State (Read-Only)")]
     [SerializeField] private GameState currentState = GameState.StartScreen;
 
     public GameState CurrentState => currentState;
     public bool IsPlaying => currentState == GameState.Playing;
-    public bool IsStartScreen => currentState == GameState.StartScreen;
+    public bool IsGameOver => currentState == GameState.GameOver;
+    public bool IsRewinding => currentState == GameState.Rewinding;
 
     private void Awake()
     {
@@ -31,25 +31,26 @@ public class GameManager : MonoBehaviour
             Destroy(gameObject);
             return;
         }
+
         Instance = this;
+        DontDestroyOnLoad(gameObject);
 
-        if (FindAnyObjectByType<CuteEnvironmentManager>() == null)
-        {
-            GameObject envObj = new GameObject("CuteEnvironmentManager");
-            envObj.AddComponent<CuteEnvironmentManager>();
-        }
+        EnsureGameManagersExist();
+    }
 
-        if (FindAnyObjectByType<VFXManager>() == null)
-        {
-            GameObject vfxObj = new GameObject("VFXManager");
-            vfxObj.AddComponent<VFXManager>();
-        }
+    private void EnsureGameManagersExist()
+    {
+        if (FindFirstObjectByType<ScoreManager>() == null)
+            new GameObject("ScoreManager").AddComponent<ScoreManager>();
 
-        if (FindAnyObjectByType<SoundManager>() == null)
-        {
-            GameObject soundObj = new GameObject("SoundManager");
-            soundObj.AddComponent<SoundManager>();
-        }
+        if (FindFirstObjectByType<VFXManager>() == null)
+            new GameObject("VFXManager").AddComponent<VFXManager>();
+
+        if (FindFirstObjectByType<SoundManager>() == null)
+            new GameObject("SoundManager").AddComponent<SoundManager>();
+
+        if (FindFirstObjectByType<CuteEnvironmentManager>() == null)
+            new GameObject("CuteEnvironmentManager").AddComponent<CuteEnvironmentManager>();
     }
 
     private void OnEnable()
@@ -67,7 +68,7 @@ public class GameManager : MonoBehaviour
     {
         GameEvents.OnGameStart -= HandleGameStart;
         GameEvents.OnGameOver -= HandleGameOver;
-        GameEvents.OnGameRestart -= HandleGameRestart;
+        GameEvents.OnGameRestart -= HandleGameStart;
         GameEvents.OnReturnToLobby -= HandleReturnToLobby;
         GameEvents.OnDoofusFell -= HandleDoofusFell;
         GameEvents.OnRewindStart -= HandleRewindStart;
@@ -101,7 +102,14 @@ public class GameManager : MonoBehaviour
     private void HandleGameOver() => SetState(GameState.GameOver);
     private void HandleGameRestart() => SetState(GameState.Playing);
     private void HandleReturnToLobby() => SetState(GameState.Lobby);
-    private void HandleDoofusFell() => Debug.Log("[GameManager] Doofus fell into the abyss!");
+
+    private void HandleDoofusFell()
+    {
+        Debug.Log("[GameManager] Doofus fell into the abyss! Triggering Game Over.");
+        SetState(GameState.GameOver);
+        GameEvents.TriggerGameOver();
+    }
+
     private void HandleRewindStart() => SetState(GameState.Rewinding);
     private void HandleRewindComplete() => SetState(GameState.Playing);
 }
