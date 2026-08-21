@@ -22,9 +22,16 @@
 | *Arcade lobby with custom character preview* | *Unity Editor view* |
 
 ### 🎥 Full Gameplay & Rewind Video Demonstration
-> 🎬 **Watch the full gameplay and rewind system in action**: [`Screen Recording 2026-08-21 202615.mp4`](./screenshots%20and%20videos/Screen%20Recording%202026-08-21%20202615.mp4)
 
----
+<div align="center">
+
+> 🎬 **Watch the full gameplay and rewind system in action**:
+
+<a href="https://www.youtube.com/watch?v=hgogVKnqOVE">
+  <img src="https://img.youtube.com/vi/hgogVKnqOVE/0.jpg" alt="Full Gameplay & Rewind Video Demonstration" width="600">
+</a>
+
+</div>
 
 ## 📖 Table of Contents
 - [🎮 Game Overview](#-game-overview)
