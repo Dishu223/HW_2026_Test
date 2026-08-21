@@ -36,6 +36,7 @@
 ## 📖 Table of Contents
 - [🎮 Game Overview](#-game-overview)
 - [⏳ Spotlight: Prince of Persia Time-Rewind System](#-spotlight-prince-of-persia-time-rewind-system)
+- [💡 Engineering Journey & Challenges Overcome](#-engineering-journey--challenges-overcome)
 - [🕹️ Controls & Keybindings](#️-controls--keybindings)
 - [✨ Core Features & Mechanics](#-core-features--mechanics)
 - [🏗️ Architecture & Engineering](#️-architecture--engineering)
@@ -100,6 +101,72 @@ Time doesn't just reverse for Doofus—the entire world rewinds in unison:
 - **Authentic Retro Glitch** ([`RewindScreenUI.cs`](file:///d:/Antigravity%20Projects/50%20Shades%20of%20Green/DoofusAdventure/Assets/_Game/Scripts/UI/RewindScreenUI.cs)): Rolling CRT scanlines, RGB chromatic aberration, and VHS tracking noise play during the rush, instantly clearing when landing.
 - **Pitch-Warped Audio** ([`SoundManager.cs`](file:///d:/Antigravity%20Projects/50%20Shades%20of%20Green/DoofusAdventure/Assets/_Game/Scripts/Core/SoundManager.cs)): Background music dynamically slows down and a tape-rewind whoosh plays in reverse.
 - **Tactical Pause**: Once safely on the platform, the game pauses (`Time.timeScale = 0`) displaying `>> PRESS WASD OR SPACE TO RESUME <<`, giving the player full control over when to step back into action!
+
+---
+
+## 💡 Engineering Journey & Challenges Overcome
+
+Building this project came with its fair share of interesting bugs, architectural puzzles, and even unexpected hardware hiccups! Here is an honest breakdown of the challenges encountered and how I solved them using **Google Search, YouTube breakdowns, Unity documentation, and AI pair-programming**:
+
+### ⏳ 1. The Prince of Persia Time-Rewind System
+- **The Problem**: 
+  - Rewinding wasn't just moving Doofus backwards; physics velocity caused glitches in Unity 6 when setting objects to Kinematic.
+  - Shattered platform pieces were getting lost or desynced, and newly generated platforms would spawn in completely different spots after rewinding, breaking continuity.
+- **How I Solved It**:
+  - **Zero-Velocity Kinematic Handshakes**: Cleanly set `linearVelocity = Vector3.zero` right before switching kinematic states to eliminate Unity 6 console warnings.
+  - **Debris Snapshot Tracking** ([`PlatformShatterFX.cs`](file:///d:/Antigravity%20Projects/50%20Shades%20of%20Green/DoofusAdventure/Assets/_Game/Scripts/Platform/PlatformShatterFX.cs)): Recorded position histories for each individual fracture shard so they reverse-fly back together mid-air like puzzle pieces.
+  - **Deterministic Path Caching** ([`PulpitManager.cs`](file:///d:/Antigravity%20Projects/50%20Shades%20of%20Green/DoofusAdventure/Assets/_Game/Scripts/Platform/PulpitManager.cs)): Cached every spawned coordinate into a sequence index history. When rewinding, the platform engine reads from the cache rather than rolling new random numbers.
+  - **Dynamic Ease Curve**: Tuned a non-linear $0.35\times \to 3.2\times \to 1.0\times$ curve so the player gets a smooth take-off, a fast rewind rush, and a gentle landing.
+
+---
+
+### ⛄ 2. Procedural Snowman Animation & "Game Juice"
+- **The Problem**: 
+  - A primitive snowman mesh looked stiff, robotic, and boring when sliding across the grid.
+  - Creating a full rigged bone skeleton in Blender was too rigid and didn't react dynamically to gameplay speed or sudden direction changes.
+- **How I Solved It**:
+  - **Procedural Lean Math**: Used trigonometry to tilt Doofus into movement ($22^\circ$ in normal walk, $38^\circ$ during Shift Dash).
+  - **Damped Spring Head Lag**: Implemented a secondary trailing spring calculation on the head transform. When dashing, the head drags $0.65\text{m}$ behind and bounces back with satisfying spring recovery upon stopping.
+  - **Micro-Expressions & Blinking**: Added dynamic wind-speed eye scaling during sprints, periodic 3-phase blinking, and a sudden brake whip on key release.
+  - **YouTube & AI Synergy**: Researched classic game-juice principles (squash, stretch, anticipation) on YouTube and used AI to quickly dial in the spring damping math.
+
+---
+
+### ☁️ 3. Cloud Generation, Skybox & Performance Optimization
+- **The Problem**: 
+  - A flat sky felt empty, but adding heavy 3D volumetric clouds caused unnecessary draw-call spikes and frame drops, while poorly placed clouds blocked the isometric camera view.
+- **How I Solved It**:
+  - **Lightweight Procedural Clustering**: Generated stylized fluffy cloud clusters at varied depths below and around the platform field using simple shared geometry.
+  - **Render Optimization**: Disabled shadow casting on background cloud meshes and kept draw calls minimal so the game runs at a locked 60+ FPS.
+  - **Camera Clearance**: Tuned isometric camera angles and clipping planes so clouds add rich atmospheric depth without obstructing platform timers or gameplay visibility.
+
+---
+
+### 🎨 4. Interactive 360° Circular HSV Color Wheel
+- **The Problem**: 
+  - Standard RGB sliders felt clunky and unintuitive for a modern arcade lobby.
+  - Building a true circular HSV color picker natively in Unity UI without relying on heavy third-party packages required custom polar math.
+- **How I Solved It**:
+  - **Polar Math Texture Generator**: Used polar trigonometry ($H = \text{atan2}(y, x), S = r/R$) to generate a crisp 360° circular hue-saturation texture on the fly.
+  - **Live 3D Turntable Preview**: Connected UI clicks directly to Doofus's materials with real-time turntable rotation in the lobby and automatic `PlayerPrefs` hex persistence.
+
+---
+
+### 📶 5. The Late-Night Panic: Wi-Fi Disappeared!
+- **The Problem**: 
+  - In the middle of development late at night, the Wi-Fi icon completely vanished from my laptop's Windows taskbar due to a sudden network adapter driver glitch.
+  - With no immediate internet access for research, documentation lookups, and git syncs, panic set in!
+- **How I Solved It**:
+  - **Stayed Calm & Found a Fast Workaround**: Instead of wasting hours troubleshooting Windows drivers in the middle of a coding flow, I plugged my phone in via USB cable and enabled **USB Tethering**.
+  - **Kept the Momentum Going**: Got instant high-speed internet, continued building and testing without losing momentum, and fixed the driver later after the build was completed!
+
+---
+
+### 🛠️ 6. My Problem-Solving Arsenal
+- 🔍 **Google Search**: Looking up Unity 6 API specifics, Rigidbody velocity changes, and math formulas.
+- 📺 **YouTube Game Dev Channels**: Studying game feel, screen shake curves, and procedural squash & stretch mechanics.
+- 🤖 **AI Pair-Programming**: Rapidly brainstorming architectures, refactoring time-dilation coroutines, and eliminating edge-case bugs.
+- 🎮 **Rapid Playtesting**: Constantly jumping into the game after every tweak to make sure the movement felt punchy, responsive, and fun.
 
 ---
 
