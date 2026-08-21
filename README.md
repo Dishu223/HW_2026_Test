@@ -106,67 +106,67 @@ Time doesn't just reverse for Doofus—the entire world rewinds in unison:
 
 ## 💡 Engineering Journey & Challenges Overcome
 
-Building this project came with its fair share of interesting bugs, architectural puzzles, and even unexpected hardware hiccups! Here is an honest breakdown of the challenges encountered and how I solved them using **Google Search, YouTube breakdowns, Unity documentation, and AI pair-programming**:
+Building this project came with its fair share of interesting bugs, design puzzles, and even unexpected hardware hiccups! Here is an honest breakdown of the challenges encountered and how I solved them using **Google Search, YouTube breakdowns, Unity documentation, and AI pair-programming**:
 
 ### ⏳ 1. The Prince of Persia Time-Rewind System
-- **The Problem**: 
-  - Rewinding wasn't just moving Doofus backwards; physics velocity caused glitches in Unity 6 when setting objects to Kinematic.
-  - Shattered platform pieces were getting lost or desynced, and newly generated platforms would spawn in completely different spots after rewinding, breaking continuity.
-- **How I Solved It**:
-  - **Zero-Velocity Kinematic Handshakes**: Cleanly set `linearVelocity = Vector3.zero` right before switching kinematic states to eliminate Unity 6 console warnings.
-  - **Debris Snapshot Tracking** ([`PlatformShatterFX.cs`](file:///d:/Antigravity%20Projects/50%20Shades%20of%20Green/DoofusAdventure/Assets/_Game/Scripts/Platform/PlatformShatterFX.cs)): Recorded position histories for each individual fracture shard so they reverse-fly back together mid-air like puzzle pieces.
-  - **Deterministic Path Caching** ([`PulpitManager.cs`](file:///d:/Antigravity%20Projects/50%20Shades%20of%20Green/DoofusAdventure/Assets/_Game/Scripts/Platform/PulpitManager.cs)): Cached every spawned coordinate into a sequence index history. When rewinding, the platform engine reads from the cache rather than rolling new random numbers.
-  - **Dynamic Ease Curve**: Tuned a non-linear $0.35\times \to 3.2\times \to 1.0\times$ curve so the player gets a smooth take-off, a fast rewind rush, and a gentle landing.
+- **The Challenge**: 
+  - Making a rewind mechanic work cleanly in 3D physics is tricky. It's not just moving the character backward—physics momentum caused jitter, shattered platform debris got lost, and newly generated platforms would spawn in completely different spots after rewinding, breaking the player's run continuity.
+- **How I Approached & Solved It**:
+  - **Physics Freezing**: Cleared momentum and velocities safely before rewinding so the character moves cleanly without glitches.
+  - **Debris Time Tracking**: Recorded position history for every shattered platform piece so they reverse-fly back together mid-air like puzzle pieces.
+  - **Memory of Platform Paths**: Saved the layout history so that when you rewind, the game replays the exact same platform path and timers rather than generating new random directions.
+  - **Cinematic Speed Curve**: Designed the rewind to start smooth, speed up into a dramatic rush, and gently slow down as you land back on solid ground.
 
 ---
 
 ### ⛄ 2. Procedural Snowman Animation & "Game Juice"
-- **The Problem**: 
-  - A primitive snowman mesh looked stiff, robotic, and boring when sliding across the grid.
-  - Creating a full rigged bone skeleton in Blender was too rigid and didn't react dynamically to gameplay speed or sudden direction changes.
-- **How I Solved It**:
-  - **Procedural Lean Math**: Used trigonometry to tilt Doofus into movement ($22^\circ$ in normal walk, $38^\circ$ during Shift Dash).
-  - **Damped Spring Head Lag**: Implemented a secondary trailing spring calculation on the head transform. When dashing, the head drags $0.65\text{m}$ behind and bounces back with satisfying spring recovery upon stopping.
-  - **Micro-Expressions & Blinking**: Added dynamic wind-speed eye scaling during sprints, periodic 3-phase blinking, and a sudden brake whip on key release.
-  - **YouTube & AI Synergy**: Researched classic game-juice principles (squash, stretch, anticipation) on YouTube and used AI to quickly dial in the spring damping math.
+- **The Challenge**: 
+  - A snowman made of simple spheres looked stiff, robotic, and boring when sliding across platforms.
+  - Building a full animated skeleton in 3D software was too rigid and didn't react naturally to sudden gameplay dashes or turns.
+- **How I Approached & Solved It**:
+  - **Dynamic Leaning**: Made the body tilt naturally in the direction of movement, leaning even deeper when sprinting.
+  - **Springy Head Lag**: Added a spring-like delay to the head so it trails behind during dashes and bounces back with satisfying momentum when stopping.
+  - **Lively Micro-Expressions**: Added wide wind-speed eyes during sprints, natural blinking, and a sudden brake whip when releasing movement keys.
+  - **YouTube & AI Synergy**: Studied classic game-juice principles (squash, stretch, anticipation) on YouTube and used AI to quickly dial in the spring physics.
 
 ---
 
 ### ☁️ 3. Cloud Generation, Skybox & Performance Optimization
-- **The Problem**: 
-  - A flat sky felt empty, but adding heavy 3D volumetric clouds caused unnecessary draw-call spikes and frame drops, while poorly placed clouds blocked the isometric camera view.
-- **How I Solved It**:
-  - **Lightweight Procedural Clustering**: Generated stylized fluffy cloud clusters at varied depths below and around the platform field using simple shared geometry.
-  - **Render Optimization**: Disabled shadow casting on background cloud meshes and kept draw calls minimal so the game runs at a locked 60+ FPS.
-  - **Camera Clearance**: Tuned isometric camera angles and clipping planes so clouds add rich atmospheric depth without obstructing platform timers or gameplay visibility.
+- **The Challenge**: 
+  - A flat blue sky felt empty, but adding heavy 3D clouds caused frame drops and lag, and poorly placed clouds blocked the camera view of the platforms.
+- **How I Approached & Solved It**:
+  - **Lightweight Cloud Clusters**: Created stylized fluffy cloud clusters around and below the play area using simple shapes to keep the atmosphere rich.
+  - **Performance Optimization**: Turned off heavy shadows and unnecessary lighting on background clouds so the game stays silky smooth at high frame rates.
+  - **Camera Framing**: Positioned the clouds so they add great depth without ever getting in the way of the player or the platform timers.
 
 ---
 
-### 🎨 4. Interactive 360° Circular HSV Color Wheel
-- **The Problem**: 
-  - Standard RGB sliders felt clunky and unintuitive for a modern arcade lobby.
-  - Building a true circular HSV color picker natively in Unity UI without relying on heavy third-party packages required custom polar math.
-- **How I Solved It**:
-  - **Polar Math Texture Generator**: Used polar trigonometry ($H = \text{atan2}(y, x), S = r/R$) to generate a crisp 360° circular hue-saturation texture on the fly.
-  - **Live 3D Turntable Preview**: Connected UI clicks directly to Doofus's materials with real-time turntable rotation in the lobby and automatic `PlayerPrefs` hex persistence.
+### 🎨 4. Interactive 360° Circular Color Wheel
+- **The Challenge**: 
+  - Standard RGB sliders felt clunky and boring for an arcade lobby.
+  - Making a true circular color wheel natively in Unity without relying on bloated third-party plugins was tricky to map from 2D mouse clicks.
+- **How I Approached & Solved It**:
+  - **Circular Color Generator**: Researched color wheel math and generated a smooth 360° hue-saturation wheel on the fly.
+  - **Live 3D Preview**: Connected mouse clicks directly to the snowman on a rotating turntable in the lobby, with custom colors automatically saved between runs.
 
 ---
 
 ### 📶 5. The Late-Night Panic: Wi-Fi Disappeared!
-- **The Problem**: 
-  - In the middle of development late at night, the Wi-Fi icon completely vanished from my laptop's Windows taskbar due to a sudden network adapter driver glitch.
-  - With no immediate internet access for research, documentation lookups, and git syncs, panic set in!
-- **How I Solved It**:
-  - **Stayed Calm & Found a Fast Workaround**: Instead of wasting hours troubleshooting Windows drivers in the middle of a coding flow, I plugged my phone in via USB cable and enabled **USB Tethering**.
-  - **Kept the Momentum Going**: Got instant high-speed internet, continued building and testing without losing momentum, and fixed the driver later after the build was completed!
+- **The Challenge**: 
+  - Late at night in the middle of development, the Wi-Fi icon completely vanished from my laptop's taskbar due to a sudden driver glitch.
+  - With no internet for lookups, documentation, and syncing commits, panic set in!
+- **How I Approached & Solved It**:
+  - **Stayed Calm & Found a Workaround**: Instead of wasting hours troubleshooting Windows drivers in the middle of a coding flow, I plugged my phone in via USB cable and enabled **USB Tethering**.
+  - **Kept the Momentum Going**: Got instant internet access, continued building and testing without interruption, and sorted out the Wi-Fi driver later after the build was done!
 
 ---
 
-### 🛠️ 6. My Problem-Solving Arsenal
-- 🔍 **Google Search**: Looking up Unity 6 API specifics, Rigidbody velocity changes, and math formulas.
-- 📺 **YouTube Game Dev Channels**: Studying game feel, screen shake curves, and procedural squash & stretch mechanics.
-- 🤖 **AI Pair-Programming**: Rapidly brainstorming architectures, refactoring time-dilation coroutines, and eliminating edge-case bugs.
-- 🎮 **Rapid Playtesting**: Constantly jumping into the game after every tweak to make sure the movement felt punchy, responsive, and fun.
+### 🛠️ 6. My Problem-Solving Toolkit
+- 🔍 **Google Search**: Looking up Unity engine features and math logic.
+- 📺 **YouTube Game Dev Channels**: Studying game feel, screen shake, and animation principles.
+- 🤖 **AI Pair-Programming**: Rapidly brainstorming ideas, refining math curves, and debugging edge cases.
+- 🎮 **Rapid Playtesting**: Playing the game after every change to make sure the controls felt punchy, responsive, and fun.
+
 
 ---
 
