@@ -5,9 +5,9 @@ using UnityEngine;
 /// <summary>
 /// Fully Configurable Particle VFX & Game Juice Manager:
 /// - Custom Confetti / Milestone Prefab slot with full useUnscaledTime support
-/// - Automatically CLEANS UP / STOPS all active confetti instances the moment the game is resumed or restarted!
+/// - StopConfettiEmittingNaturally(): Stops emitting new confetti but lets active particles flutter down and finish their natural loop on Space/resume!
+/// - ForceClearAllConfetti(): Instant reset on hard game restart (R)
 /// - Platform Spawn Edge Dust: Shoots strictly OUTWARD horizontally from downside perimeter edges
-/// - Inspector-exposed tuning parameters (colors, sizes, speeds, particle counts)
 /// </summary>
 public class VFXManager : MonoBehaviour
 {
@@ -85,9 +85,9 @@ public class VFXManager : MonoBehaviour
         GameEvents.OnRewindComplete += HandleRewindComplete;
         GameEvents.OnMilestoneReached += HandleMilestoneReached;
         GameEvents.OnGameVictory += HandleGameVictory;
-        GameEvents.OnGameStart += ClearAllConfetti;
-        GameEvents.OnGameRestart += ClearAllConfetti;
-        GameEvents.OnReturnToLobby += ClearAllConfetti;
+        GameEvents.OnGameStart += ForceClearAllConfetti;
+        GameEvents.OnGameRestart += ForceClearAllConfetti;
+        GameEvents.OnReturnToLobby += ForceClearAllConfetti;
     }
 
     private void OnDisable()
@@ -98,9 +98,9 @@ public class VFXManager : MonoBehaviour
         GameEvents.OnRewindComplete -= HandleRewindComplete;
         GameEvents.OnMilestoneReached -= HandleMilestoneReached;
         GameEvents.OnGameVictory -= HandleGameVictory;
-        GameEvents.OnGameStart -= ClearAllConfetti;
-        GameEvents.OnGameRestart -= ClearAllConfetti;
-        GameEvents.OnReturnToLobby -= ClearAllConfetti;
+        GameEvents.OnGameStart -= ForceClearAllConfetti;
+        GameEvents.OnGameRestart -= ForceClearAllConfetti;
+        GameEvents.OnReturnToLobby -= ForceClearAllConfetti;
     }
 
     private void CreateDefaultParticleMaterial()
@@ -325,7 +325,7 @@ public class VFXManager : MonoBehaviour
                 main.useUnscaledTime = true;
                 ps.Play();
             }
-            StartCoroutine(DestroyRealtimeCoroutine(confettiObj, 8f));
+            StartCoroutine(DestroyRealtimeCoroutine(confettiObj, 6f));
         }
         else if (milestoneConfettiPS != null)
         {
@@ -336,18 +336,33 @@ public class VFXManager : MonoBehaviour
         }
     }
 
-    public void ClearAllConfetti()
+    /// <summary>
+    /// Naturally stops emitting new confetti but allows already-spawned ribbons and particles to flutter down and finish their natural loop!
+    /// </summary>
+    public void StopConfettiEmittingNaturally()
     {
-        // Stop and clear all active confetti objects
-        for (int i = activeConfettiInstances.Count - 1; i >= 0; i--)
+        for (int i = 0; i < activeConfettiInstances.Count; i++)
         {
             if (activeConfettiInstances[i] != null)
             {
                 ParticleSystem[] systems = activeConfettiInstances[i].GetComponentsInChildren<ParticleSystem>();
                 foreach (var ps in systems)
                 {
-                    ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                    ps.Stop(true, ParticleSystemStopBehavior.StopEmitting);
                 }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Instantly destroys and clears all confetti on hard restart.
+    /// </summary>
+    public void ForceClearAllConfetti()
+    {
+        for (int i = activeConfettiInstances.Count - 1; i >= 0; i--)
+        {
+            if (activeConfettiInstances[i] != null)
+            {
                 Destroy(activeConfettiInstances[i]);
             }
         }
