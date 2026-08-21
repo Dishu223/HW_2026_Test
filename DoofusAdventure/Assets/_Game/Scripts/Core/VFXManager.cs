@@ -4,7 +4,7 @@ using UnityEngine;
 
 /// <summary>
 /// Fully Configurable Particle VFX & Game Juice Manager:
-/// - Custom Confetti / Milestone Prefab slot with full useUnscaledTime support
+/// - Dedicated VICTORY Confetti Prefab slot (triggers EXCLUSIVELY upon winning/reaching the goal)
 /// - StopConfettiEmittingNaturally(): Stops emitting new confetti but lets active particles flutter down and finish their natural loop on Space/resume!
 /// - ForceClearAllConfetti(): Instant reset on hard game restart (R)
 /// - Platform Spawn Edge Dust: Shoots strictly OUTWARD horizontally from downside perimeter edges
@@ -14,8 +14,8 @@ public class VFXManager : MonoBehaviour
     public static VFXManager Instance { get; private set; }
 
     [Header("--- Custom VFX Prefabs (Drag your Prefabs here!) ---")]
-    [Tooltip("Drag your confetti prefab here (e.g. BurstJumpConfetti_Regular_Classic or SimpleConfettiBurst)!")]
-    [SerializeField] private GameObject customMilestoneConfettiPrefab;
+    [Tooltip("Drag your confetti prefab here (e.g. BurstJumpConfetti_Regular_Classic or SimpleConfettiBurst) - Triggered EXCLUSIVELY on Victory!")]
+    [SerializeField] private GameObject customVictoryConfettiPrefab;
     [SerializeField] private ParticleSystem customSpawnPuffPrefab;
     [SerializeField] private ParticleSystem customLandingRingPrefab;
     [SerializeField] private ParticleSystem customCrumbleDustPrefab;
@@ -49,17 +49,17 @@ public class VFXManager : MonoBehaviour
     [SerializeField] private float chronoParticleLifetime = 0.50f;
     [SerializeField] private int chronoParticleCount = 18;
 
-    [Header("--- Milestone Confetti Tuning ---")]
-    [SerializeField] private Color confettiColor = new Color(1f, 0.85f, 0.15f, 1f);
-    [SerializeField] private float confettiParticleSize = 0.35f;
-    [SerializeField] private float confettiParticleLifetime = 0.90f;
-    [SerializeField] private int confettiParticleCount = 60;
+    [Header("--- Victory Celebration Confetti Tuning ---")]
+    [SerializeField] private Color victoryConfettiColor = new Color(1f, 0.85f, 0.15f, 1f);
+    [SerializeField] private float victoryConfettiParticleSize = 0.35f;
+    [SerializeField] private float victoryConfettiParticleLifetime = 0.90f;
+    [SerializeField] private int victoryConfettiParticleCount = 60;
 
     private ParticleSystem landingRingPS;
     private ParticleSystem spawnEdgeDustPS;
     private ParticleSystem crumbleDustPS;
     private ParticleSystem chronoSparklePS;
-    private ParticleSystem milestoneConfettiPS;
+    private ParticleSystem victoryConfettiPS;
 
     private List<GameObject> activeConfettiInstances = new List<GameObject>();
     private Material defaultParticleMaterial;
@@ -83,7 +83,6 @@ public class VFXManager : MonoBehaviour
         GameEvents.OnPulpitSpawned += HandlePulpitSpawned;
         GameEvents.OnPulpitDestroyed += HandlePulpitDestroyed;
         GameEvents.OnRewindComplete += HandleRewindComplete;
-        GameEvents.OnMilestoneReached += HandleMilestoneReached;
         GameEvents.OnGameVictory += HandleGameVictory;
         GameEvents.OnGameStart += ForceClearAllConfetti;
         GameEvents.OnGameRestart += ForceClearAllConfetti;
@@ -96,7 +95,6 @@ public class VFXManager : MonoBehaviour
         GameEvents.OnPulpitSpawned -= HandlePulpitSpawned;
         GameEvents.OnPulpitDestroyed -= HandlePulpitDestroyed;
         GameEvents.OnRewindComplete -= HandleRewindComplete;
-        GameEvents.OnMilestoneReached -= HandleMilestoneReached;
         GameEvents.OnGameVictory -= HandleGameVictory;
         GameEvents.OnGameStart -= ForceClearAllConfetti;
         GameEvents.OnGameRestart -= ForceClearAllConfetti;
@@ -131,10 +129,10 @@ public class VFXManager : MonoBehaviour
             ? Instantiate(customChronoSparklePrefab, transform)
             : CreateCircleParticleSystem("Chrono_Sparkle_PS", chronoParticleCount, chronoColor, chronoParticleLifetime, chronoParticleSize, 1.2f);
 
-        milestoneConfettiPS = CreateCircleParticleSystem("Milestone_Confetti_PS", confettiParticleCount, confettiColor, confettiParticleLifetime, confettiParticleSize, 3.5f);
-        if (milestoneConfettiPS != null)
+        victoryConfettiPS = CreateCircleParticleSystem("Victory_Confetti_PS", victoryConfettiParticleCount, victoryConfettiColor, victoryConfettiParticleLifetime, victoryConfettiParticleSize, 3.5f);
+        if (victoryConfettiPS != null)
         {
-            var main = milestoneConfettiPS.main;
+            var main = victoryConfettiPS.main;
             main.useUnscaledTime = true;
         }
     }
@@ -311,11 +309,11 @@ public class VFXManager : MonoBehaviour
         }
     }
 
-    public void SpawnMilestoneConfetti(Vector3 position)
+    public void SpawnVictoryConfetti(Vector3 position)
     {
-        if (customMilestoneConfettiPrefab != null)
+        if (customVictoryConfettiPrefab != null)
         {
-            GameObject confettiObj = Instantiate(customMilestoneConfettiPrefab, position + Vector3.up * 1.5f, Quaternion.identity);
+            GameObject confettiObj = Instantiate(customVictoryConfettiPrefab, position + Vector3.up * 1.5f, Quaternion.identity);
             activeConfettiInstances.Add(confettiObj);
 
             ParticleSystem[] systems = confettiObj.GetComponentsInChildren<ParticleSystem>();
@@ -327,18 +325,15 @@ public class VFXManager : MonoBehaviour
             }
             StartCoroutine(DestroyRealtimeCoroutine(confettiObj, 6f));
         }
-        else if (milestoneConfettiPS != null)
+        else if (victoryConfettiPS != null)
         {
-            var main = milestoneConfettiPS.main;
+            var main = victoryConfettiPS.main;
             main.useUnscaledTime = true;
-            milestoneConfettiPS.transform.position = position + new Vector3(0f, 2f, 0f);
-            milestoneConfettiPS.Emit(confettiParticleCount);
+            victoryConfettiPS.transform.position = position + new Vector3(0f, 2f, 0f);
+            victoryConfettiPS.Emit(victoryConfettiParticleCount);
         }
     }
 
-    /// <summary>
-    /// Naturally stops emitting new confetti but allows already-spawned ribbons and particles to flutter down and finish their natural loop!
-    /// </summary>
     public void StopConfettiEmittingNaturally()
     {
         for (int i = 0; i < activeConfettiInstances.Count; i++)
@@ -354,9 +349,6 @@ public class VFXManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Instantly destroys and clears all confetti on hard restart.
-    /// </summary>
     public void ForceClearAllConfetti()
     {
         for (int i = activeConfettiInstances.Count - 1; i >= 0; i--)
@@ -368,9 +360,9 @@ public class VFXManager : MonoBehaviour
         }
         activeConfettiInstances.Clear();
 
-        if (milestoneConfettiPS != null)
+        if (victoryConfettiPS != null)
         {
-            milestoneConfettiPS.Clear();
+            victoryConfettiPS.Clear();
         }
     }
 
@@ -403,18 +395,11 @@ public class VFXManager : MonoBehaviour
         SpawnChronoSparkle(pos);
     }
 
-    private void HandleMilestoneReached(int milestone)
-    {
-        DoofusController doofus = FindAnyObjectByType<DoofusController>();
-        Vector3 pos = doofus != null ? doofus.transform.position : Vector3.zero;
-        SpawnMilestoneConfetti(pos);
-    }
-
     private void HandleGameVictory()
     {
         DoofusController doofus = FindAnyObjectByType<DoofusController>();
         Vector3 pos = doofus != null ? doofus.transform.position : Vector3.zero;
-        SpawnMilestoneConfetti(pos);
+        SpawnVictoryConfetti(pos);
     }
     #endregion
 }
