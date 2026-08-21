@@ -25,10 +25,9 @@ public class HUDController : MonoBehaviour
         canvasGroup = GetComponent<CanvasGroup>();
         if (canvasGroup == null) canvasGroup = gameObject.AddComponent<CanvasGroup>();
 
-        if (GetComponent<RewindGlitchFX>() == null)
-        {
-            gameObject.AddComponent<RewindGlitchFX>();
-        }
+        // Remove any old stray RewindGlitchFX canvas
+        RewindGlitchFX oldGlitch = GetComponent<RewindGlitchFX>();
+        if (oldGlitch != null) Destroy(oldGlitch);
 
         HideHUD();
     }
@@ -77,7 +76,6 @@ public class HUDController : MonoBehaviour
     {
         if (scoreText != null)
         {
-            // Only update text content - does NOT override your Inspector Font Size, Color, or Alignment!
             scoreText.text = $"SCORE : {newScore}";
 
             if (gameObject.activeInHierarchy && canvasGroup != null && canvasGroup.alpha > 0.5f)
@@ -97,7 +95,6 @@ public class HUDController : MonoBehaviour
     {
         if (rewindChargesText == null) return;
 
-        // Clean ASCII charge indicators
         string batterySegments = "";
         for (int i = 0; i < max; i++)
         {
