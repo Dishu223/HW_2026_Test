@@ -4,9 +4,11 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// In-Game HUD Controller:
-/// - Fully respects your custom Inspector & Scene View placements, anchors, and pivots!
-/// - Displays live Score, High Score, and Sand of Time Rewind Charges
+/// Retro Arcade In-Game HUD Controller:
+/// - Chunky Arcade Marquee Score Display (Neon Yellow / Cyan with deep dark drop shadow)
+/// - Clean Segmented Sand Battery for Rewinds Left (No emojis, 100% font safe)
+/// - Automatically initializes RewindGlitchFX screen overlay
+/// - Fully respects custom Scene View manual positioning!
 /// </summary>
 [RequireComponent(typeof(CanvasGroup))]
 public class HUDController : MonoBehaviour
@@ -25,6 +27,12 @@ public class HUDController : MonoBehaviour
     {
         canvasGroup = GetComponent<CanvasGroup>();
         if (canvasGroup == null) canvasGroup = gameObject.AddComponent<CanvasGroup>();
+
+        // Ensure RewindGlitchFX is attached
+        if (GetComponent<RewindGlitchFX>() == null)
+        {
+            gameObject.AddComponent<RewindGlitchFX>();
+        }
 
         HideHUD();
     }
@@ -73,7 +81,8 @@ public class HUDController : MonoBehaviour
     {
         if (scoreText != null)
         {
-            scoreText.text = $"SCORE: {newScore}";
+            // Chunky Arcade Marquee Styling with Neon Gold and Shadow
+            scoreText.text = $"<color=#FFE600>SCORE</color> <color=#FFFFFF>{newScore}</color>";
 
             if (gameObject.activeInHierarchy && canvasGroup != null && canvasGroup.alpha > 0.5f)
             {
@@ -84,7 +93,7 @@ public class HUDController : MonoBehaviour
 
         if (highScoreText != null && ScoreManager.Instance != null)
         {
-            highScoreText.text = $"BEST: {ScoreManager.Instance.HighScore}";
+            highScoreText.text = $"<color=#94A3B8>BEST</color> <color=#00E5FF>{ScoreManager.Instance.HighScore}</color>";
         }
     }
 
@@ -92,16 +101,17 @@ public class HUDController : MonoBehaviour
     {
         if (rewindChargesText == null) return;
 
-        string chargesDisplay = "";
+        // Clean Segmented Battery Blocks (No emojis, crisp font-safe brackets & bars)
+        string batterySegments = "";
         for (int i = 0; i < max; i++)
         {
             if (i < current)
-                chargesDisplay += "<color=#00E5FF>◆</color> ";
+                batterySegments += "<color=#00E5FF>■</color> "; // Charged neon cyan block
             else
-                chargesDisplay += "<color=#444444>◆</color> ";
+                batterySegments += "<color=#334155>▪</color> "; // Spent dark slate block
         }
 
-        rewindChargesText.text = $"REWIND: {chargesDisplay.Trim()}";
+        rewindChargesText.text = $"<color=#00E5FF>REWIND</color>  [ {batterySegments.Trim()} ]";
     }
 
     private IEnumerator PunchScale(Transform target, float punchScale, float duration)

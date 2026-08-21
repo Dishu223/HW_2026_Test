@@ -8,7 +8,7 @@ using UnityEngine.UI;
 /// Combined Start Screen & Character Customization Lobby UI:
 /// - True Circular HSV Color Wheel (strict 1:1 aspect ratio)
 /// - Target Selector (BODY / HEAD / EYES) with perfect click isolation
-/// - Clean standard ASCII typography (no missing glyph boxes)
+/// - Animated high-impact PRESS SPACE prompt with spring bounce & glowing neon pulse
 /// - Real-time 3D Doofus Turntable Rotation Preview
 /// </summary>
 public class StartScreenUI : MonoBehaviour
@@ -18,6 +18,10 @@ public class StartScreenUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI pressSpacePrompt;
 
     private float initialTitleY;
+    private float initialPromptX;
+    private float initialPromptY;
+    private Vector3 initialPromptScale = Vector3.one;
+
     private GameObject customPanelObj;
     private DoofusController doofusPreview;
     private CustomizationManager.CustomPart selectedPart = CustomizationManager.CustomPart.Body;
@@ -46,6 +50,9 @@ public class StartScreenUI : MonoBehaviour
 
         if (pressSpacePrompt != null)
         {
+            initialPromptX = pressSpacePrompt.rectTransform.anchoredPosition.x;
+            initialPromptY = pressSpacePrompt.rectTransform.anchoredPosition.y;
+            initialPromptScale = pressSpacePrompt.rectTransform.localScale;
             pressSpacePrompt.text = ">> PRESS SPACE TO START <<";
         }
 
@@ -55,23 +62,37 @@ public class StartScreenUI : MonoBehaviour
 
     private void Update()
     {
+        // 1. Rotate Doofus in 3D
         if (doofusPreview != null)
         {
             doofusPreview.transform.Rotate(Vector3.up, 35f * Time.unscaledDeltaTime, Space.World);
         }
 
+        // 2. Animated Title Bounce
         if (titleText != null)
         {
             float newY = initialTitleY + Mathf.Sin(Time.unscaledTime * 3f) * 8f;
             titleText.rectTransform.anchoredPosition = new Vector2(titleText.rectTransform.anchoredPosition.x, newY);
         }
 
+        // 3. High-Impact Glowing & Elastic Bouncing "PRESS SPACE" Prompt
         if (pressSpacePrompt != null)
         {
-            float alpha = 0.55f + Mathf.PingPong(Time.unscaledTime * 2f, 0.45f);
-            pressSpacePrompt.alpha = alpha;
+            // Horizontal elastic bounce
+            float bounceX = initialPromptX + Mathf.Sin(Time.unscaledTime * 4.5f) * 10f;
+            pressSpacePrompt.rectTransform.anchoredPosition = new Vector2(bounceX, initialPromptY);
+
+            // Spring scale punch
+            float scalePulse = 1.0f + Mathf.Sin(Time.unscaledTime * 5.0f) * 0.09f;
+            pressSpacePrompt.rectTransform.localScale = initialPromptScale * scalePulse;
+
+            // Soft glowing color cycle (Pure White <-> Electric Cyan / Neon Gold)
+            float glowT = Mathf.PingPong(Time.unscaledTime * 2.5f, 1f);
+            Color glowColor = Color.Lerp(new Color(1f, 1f, 1f, 1f), new Color(0f, 0.95f, 1f, 1f), glowT);
+            pressSpacePrompt.color = glowColor;
         }
 
+        // 4. Space / Enter keyboard launch
         bool spacePressed = Keyboard.current != null && (Keyboard.current.spaceKey.wasPressedThisFrame || Keyboard.current.enterKey.wasPressedThisFrame);
         if (spacePressed)
         {
@@ -112,7 +133,7 @@ public class StartScreenUI : MonoBehaviour
         CreateTabButton(tabsRow, "HEAD", () => SwitchTab(CustomizationManager.CustomPart.Head), out headTabBg);
         CreateTabButton(tabsRow, "EYES", () => SwitchTab(CustomizationManager.CustomPart.Eyes), out eyeTabBg);
 
-        // 3. Circular Color Wheel Container (Fixed 150x150 square row to prevent oval distortion!)
+        // 3. Circular Color Wheel Container
         Transform wheelContainer = CreateRowContainer(customPanelObj.transform, 155f, 0f);
         GameObject wheelObj = new GameObject("Color_Wheel_Object");
         wheelObj.transform.SetParent(wheelContainer, false);
@@ -353,8 +374,6 @@ public class StartScreenUI : MonoBehaviour
 
     private void LaunchGame()
     {
-        Debug.Log("[StartScreenUI] Starting Run with Customized Character!");
-
         if (doofusPreview != null)
         {
             doofusPreview.transform.rotation = Quaternion.identity;
