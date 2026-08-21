@@ -5,10 +5,10 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Retro Arcade In-Game HUD Controller:
-/// - Chunky Arcade Marquee Score Box (Dark Glass with Neon Border & Drop Shadow)
-/// - Clean Single-Line Segmented Sand Battery for Rewinds (Zero line-wrapping, zero emojis)
-/// - Automatically initializes RewindGlitchFX screen overlay
-/// - Fully respects manual Scene View positioning while providing stylized backings!
+/// - Chunky High-Visibility Neon Score Display (Electric Neon Gold & Crisp White)
+/// - Single-Line Segmented Sand Battery for Rewinds (100% font-safe, zero line wrapping)
+/// - Pure text rendering with zero blocking overlays for maximum visibility!
+/// - Fully respects manual Scene View positioning and styling.
 /// </summary>
 [RequireComponent(typeof(CanvasGroup))]
 public class HUDController : MonoBehaviour
@@ -23,9 +23,6 @@ public class HUDController : MonoBehaviour
     private CanvasGroup canvasGroup;
     private Coroutine scorePunchRoutine;
 
-    private Image scoreMarqueeBadge;
-    private Image rewindBadge;
-
     private void Awake()
     {
         canvasGroup = GetComponent<CanvasGroup>();
@@ -36,76 +33,33 @@ public class HUDController : MonoBehaviour
             gameObject.AddComponent<RewindGlitchFX>();
         }
 
-        StyleArcadeMarqueeBoxes();
+        CleanupAndFormatTexts();
         HideHUD();
     }
 
-    private void StyleArcadeMarqueeBoxes()
+    private void CleanupAndFormatTexts()
     {
-        // 1. Style Score Marquee Box
+        // 1. Ensure Score Text has zero blocking children and 100% white base color for rich-text tags
         if (scoreText != null)
         {
+            Transform oldBacking = scoreText.transform.Find("Marquee_Backing");
+            if (oldBacking != null) Destroy(oldBacking.gameObject);
+
+            scoreText.color = Color.white;
             scoreText.enableWordWrapping = false;
             scoreText.overflowMode = TextOverflowModes.Overflow;
             scoreText.alignment = TextAlignmentOptions.Center;
-
-            // Ensure width is generous so text never clips
-            RectTransform scoreRT = scoreText.rectTransform;
-            if (scoreRT.sizeDelta.x < 240f) scoreRT.sizeDelta = new Vector2(260f, 50f);
-
-            // Add or style dark-glass marquee backing behind Score
-            Transform existingBadge = scoreText.transform.Find("Marquee_Backing");
-            if (existingBadge == null)
-            {
-                GameObject bgObj = new GameObject("Marquee_Backing");
-                bgObj.transform.SetParent(scoreText.transform, false);
-                bgObj.transform.SetAsFirstSibling();
-
-                RectTransform bgRT = bgObj.AddComponent<RectTransform>();
-                bgRT.anchorMin = Vector2.zero;
-                bgRT.anchorMax = Vector2.one;
-                bgRT.sizeDelta = new Vector2(36f, 16f); // Generous padding
-
-                scoreMarqueeBadge = bgObj.AddComponent<Image>();
-                scoreMarqueeBadge.color = new Color(0.04f, 0.07f, 0.12f, 0.88f); // Dark glass
-                scoreMarqueeBadge.raycastTarget = false;
-
-                // Add subtle neon border outline
-                Outline outline = bgObj.AddComponent<Outline>();
-                outline.effectColor = new Color(1f, 0.85f, 0f, 0.65f); // Neon Gold outline
-                outline.effectDistance = new Vector2(2f, -2f);
-            }
         }
 
-        // 2. Style Rewind Charges Box
+        // 2. Ensure Rewind Charges Text has zero blocking children and single-line layout
         if (rewindChargesText != null)
         {
+            Transform oldRewBg = rewindChargesText.transform.Find("Rewind_Backing");
+            if (oldRewBg != null) Destroy(oldRewBg.gameObject);
+
+            rewindChargesText.color = Color.white;
             rewindChargesText.enableWordWrapping = false;
             rewindChargesText.overflowMode = TextOverflowModes.Overflow;
-
-            RectTransform rewRT = rewindChargesText.rectTransform;
-            if (rewRT.sizeDelta.x < 280f) rewRT.sizeDelta = new Vector2(300f, 45f);
-
-            Transform existingRewBg = rewindChargesText.transform.Find("Rewind_Backing");
-            if (existingRewBg == null)
-            {
-                GameObject bgObj = new GameObject("Rewind_Backing");
-                bgObj.transform.SetParent(rewindChargesText.transform, false);
-                bgObj.transform.SetAsFirstSibling();
-
-                RectTransform bgRT = bgObj.AddComponent<RectTransform>();
-                bgRT.anchorMin = Vector2.zero;
-                bgRT.anchorMax = Vector2.one;
-                bgRT.sizeDelta = new Vector2(32f, 14f);
-
-                rewindBadge = bgObj.AddComponent<Image>();
-                rewindBadge.color = new Color(0.04f, 0.07f, 0.12f, 0.85f);
-                rewindBadge.raycastTarget = false;
-
-                Outline outline = bgObj.AddComponent<Outline>();
-                outline.effectColor = new Color(0f, 0.85f, 1f, 0.55f); // Neon Cyan outline
-                outline.effectDistance = new Vector2(2f, -2f);
-            }
         }
     }
 
@@ -153,7 +107,7 @@ public class HUDController : MonoBehaviour
     {
         if (scoreText != null)
         {
-            // Chunky Arcade Marquee Styling with Neon Gold and Crisp White
+            // Chunky High-Contrast Neon Styling
             scoreText.text = $"<color=#FFE600>SCORE</color>  <color=#FFFFFF>{newScore}</color>";
 
             if (gameObject.activeInHierarchy && canvasGroup != null && canvasGroup.alpha > 0.5f)
@@ -165,7 +119,7 @@ public class HUDController : MonoBehaviour
 
         if (highScoreText != null && ScoreManager.Instance != null)
         {
-            highScoreText.text = $"<color=#94A3B8>BEST</color> <color=#00E5FF>{ScoreManager.Instance.HighScore}</color>";
+            highScoreText.text = $"<color=#94A3B8>BEST</color>  <color=#00E5FF>{ScoreManager.Instance.HighScore}</color>";
         }
     }
 
@@ -173,14 +127,14 @@ public class HUDController : MonoBehaviour
     {
         if (rewindChargesText == null) return;
 
-        // Clean Segmented Battery Blocks (Single line guaranteed, no wrapping!)
+        // Clean Single-Line Segmented Battery
         string batterySegments = "";
         for (int i = 0; i < max; i++)
         {
             if (i < current)
                 batterySegments += "<color=#00E5FF>■</color> ";
             else
-                batterySegments += "<color=#334155>▪</color> ";
+                batterySegments += "<color=#64748B>▪</color> ";
         }
 
         rewindChargesText.text = $"<color=#00E5FF>REWIND</color>  [ {batterySegments.Trim()} ]";
