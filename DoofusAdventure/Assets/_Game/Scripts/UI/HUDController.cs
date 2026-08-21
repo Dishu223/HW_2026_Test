@@ -5,10 +5,9 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Retro Arcade In-Game HUD Controller:
-/// - Chunky High-Visibility Neon Score Display (Electric Neon Gold & Crisp White)
-/// - Single-Line Segmented Sand Battery for Rewinds (100% font-safe, zero line wrapping)
-/// - Pure text rendering with zero blocking overlays for maximum visibility!
-/// - Fully respects manual Scene View positioning and styling.
+/// - Crisp, high-visibility Fredoka typography
+/// - Guaranteed single-line layout (word-wrapping strictly disabled)
+/// - Clean readable Score and Rewind charges display
 /// </summary>
 [RequireComponent(typeof(CanvasGroup))]
 public class HUDController : MonoBehaviour
@@ -33,33 +32,47 @@ public class HUDController : MonoBehaviour
             gameObject.AddComponent<RewindGlitchFX>();
         }
 
-        CleanupAndFormatTexts();
+        ConfigureTextProperties();
         HideHUD();
     }
 
-    private void CleanupAndFormatTexts()
+    private void Start()
     {
-        // 1. Ensure Score Text has zero blocking children and 100% white base color for rich-text tags
+        ConfigureTextProperties();
+    }
+
+    private void ConfigureTextProperties()
+    {
         if (scoreText != null)
         {
-            Transform oldBacking = scoreText.transform.Find("Marquee_Backing");
-            if (oldBacking != null) Destroy(oldBacking.gameObject);
-
-            scoreText.color = Color.white;
             scoreText.enableWordWrapping = false;
             scoreText.overflowMode = TextOverflowModes.Overflow;
             scoreText.alignment = TextAlignmentOptions.Center;
+            scoreText.fontSize = 32f;
+            scoreText.color = Color.white;
+
+            RectTransform rt = scoreText.rectTransform;
+            if (rt.sizeDelta.x < 350f) rt.sizeDelta = new Vector2(350f, 60f);
         }
 
-        // 2. Ensure Rewind Charges Text has zero blocking children and single-line layout
+        if (highScoreText != null)
+        {
+            highScoreText.enableWordWrapping = false;
+            highScoreText.overflowMode = TextOverflowModes.Overflow;
+            highScoreText.fontSize = 20f;
+            highScoreText.color = Color.white;
+        }
+
         if (rewindChargesText != null)
         {
-            Transform oldRewBg = rewindChargesText.transform.Find("Rewind_Backing");
-            if (oldRewBg != null) Destroy(oldRewBg.gameObject);
-
-            rewindChargesText.color = Color.white;
             rewindChargesText.enableWordWrapping = false;
             rewindChargesText.overflowMode = TextOverflowModes.Overflow;
+            rewindChargesText.alignment = TextAlignmentOptions.Right;
+            rewindChargesText.fontSize = 24f;
+            rewindChargesText.color = Color.white;
+
+            RectTransform rt = rewindChargesText.rectTransform;
+            if (rt.sizeDelta.x < 350f) rt.sizeDelta = new Vector2(350f, 60f);
         }
     }
 
@@ -89,6 +102,7 @@ public class HUDController : MonoBehaviour
             canvasGroup.interactable = true;
             canvasGroup.blocksRaycasts = true;
         }
+        ConfigureTextProperties();
         UpdateScoreDisplay(0);
         UpdateChargesDisplay(3, 3);
     }
@@ -107,19 +121,19 @@ public class HUDController : MonoBehaviour
     {
         if (scoreText != null)
         {
-            // Chunky High-Contrast Neon Styling
-            scoreText.text = $"<color=#FFE600>SCORE</color>  <color=#FFFFFF>{newScore}</color>";
+            // Crisp, high-contrast neon yellow label + bright white score
+            scoreText.text = $"<color=#FFE600>SCORE</color> : <color=#FFFFFF>{newScore}</color>";
 
             if (gameObject.activeInHierarchy && canvasGroup != null && canvasGroup.alpha > 0.5f)
             {
                 if (scorePunchRoutine != null) StopCoroutine(scorePunchRoutine);
-                scorePunchRoutine = StartCoroutine(PunchScale(scoreText.transform, 1.25f, 0.18f));
+                scorePunchRoutine = StartCoroutine(PunchScale(scoreText.transform, 1.22f, 0.16f));
             }
         }
 
         if (highScoreText != null && ScoreManager.Instance != null)
         {
-            highScoreText.text = $"<color=#94A3B8>BEST</color>  <color=#00E5FF>{ScoreManager.Instance.HighScore}</color>";
+            highScoreText.text = $"<color=#94A3B8>BEST</color> : <color=#00E5FF>{ScoreManager.Instance.HighScore}</color>";
         }
     }
 
@@ -127,14 +141,14 @@ public class HUDController : MonoBehaviour
     {
         if (rewindChargesText == null) return;
 
-        // Clean Single-Line Segmented Battery
+        // Clean ASCII Segmented Charges (100% font-safe across all fonts)
         string batterySegments = "";
         for (int i = 0; i < max; i++)
         {
             if (i < current)
-                batterySegments += "<color=#00E5FF>■</color> ";
+                batterySegments += "<color=#00E5FF>/</color> "; // Neon cyan slash
             else
-                batterySegments += "<color=#64748B>▪</color> ";
+                batterySegments += "<color=#475569>.</color> "; // Dim slate dot
         }
 
         rewindChargesText.text = $"<color=#00E5FF>REWIND</color>  [ {batterySegments.Trim()} ]";
