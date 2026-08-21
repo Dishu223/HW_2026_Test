@@ -6,6 +6,7 @@ public static class GameEvents
     #region Game Flow Events
     public static event Action OnGameStart;
     public static event Action OnGameOver;
+    public static event Action OnGameVictory;
     public static event Action OnGameRestart;
     public static event Action OnReturnToLobby;
     #endregion
@@ -33,6 +34,7 @@ public static class GameEvents
     #region Helper Trigger Methods
     public static void TriggerGameStart() => OnGameStart?.Invoke();
     public static void TriggerGameOver() => OnGameOver?.Invoke();
+    public static void TriggerGameVictory() => OnGameVictory?.Invoke();
     public static void TriggerGameRestart() => OnGameRestart?.Invoke();
     public static void TriggerReturnToLobby() => OnReturnToLobby?.Invoke();
 
