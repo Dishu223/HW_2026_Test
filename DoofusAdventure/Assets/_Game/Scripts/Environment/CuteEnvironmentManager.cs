@@ -54,15 +54,13 @@ public class CuteEnvironmentManager : MonoBehaviour
             mainCam.clearFlags = CameraClearFlags.SolidColor;
             mainCam.backgroundColor = new Color(0.42f, 0.76f, 0.94f); // Dreamy Sunny Cyan
 
-            // Set ambient lighting to soft pastel fill
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
             RenderSettings.ambientSkyColor = skyTopColor * 1.1f;
             RenderSettings.ambientEquatorColor = skyHorizonColor * 0.9f;
             RenderSettings.ambientGroundColor = skyGroundColor * 0.8f;
         }
 
-        // Warm directional sunlight
-        Light sun = FindFirstObjectByType<Light>();
+        Light sun = FindAnyObjectByType<Light>();
         if (sun != null && sun.type == LightType.Directional)
         {
             sun.color = new Color(1f, 0.97f, 0.90f); // Warm golden sunlight
@@ -74,7 +72,7 @@ public class CuteEnvironmentManager : MonoBehaviour
 
     private void SetupCutePostProcessing()
     {
-        Volume volume = FindFirstObjectByType<Volume>();
+        Volume volume = FindAnyObjectByType<Volume>();
         if (volume == null)
         {
             GameObject volObj = new GameObject("Cute_PostProcessing_Volume");
@@ -90,7 +88,7 @@ public class CuteEnvironmentManager : MonoBehaviour
             volume.profile = profile;
         }
 
-        // 1. Dreamy Bloom (soft glow on bright objects)
+        // 1. Dreamy Bloom
         if (!profile.TryGet(out Bloom bloom)) bloom = profile.Add<Bloom>(true);
         if (bloom != null)
         {
@@ -111,10 +109,10 @@ public class CuteEnvironmentManager : MonoBehaviour
             colorAdj.contrast.overrideState = true;
             colorAdj.contrast.value = 14f;
             colorAdj.saturation.overrideState = true;
-            colorAdj.saturation.value = 22f; // Punchy, happy vibrant colors!
+            colorAdj.saturation.value = 22f;
         }
 
-        // 3. Tonemapping (ACES for rich filmic highlights)
+        // 3. Tonemapping (ACES)
         if (!profile.TryGet(out Tonemapping tonemapping)) tonemapping = profile.Add<Tonemapping>(true);
         if (tonemapping != null)
         {
@@ -142,7 +140,7 @@ public class CuteEnvironmentManager : MonoBehaviour
         if (unlitShader == null) unlitShader = Shader.Find("Standard");
 
         cloudMaterial = new Material(unlitShader);
-        cloudMaterial.color = new Color(0.98f, 0.98f, 1f, 0.95f); // Fluffy marshmallow white
+        cloudMaterial.color = new Color(0.98f, 0.98f, 1f, 0.95f);
     }
 
     private void SpawnDriftingCartoonClouds()
@@ -154,12 +152,11 @@ public class CuteEnvironmentManager : MonoBehaviour
         {
             GameObject cloudObj = CreateSingleFluffyCloud(cloudRoot.transform);
 
-            // Random placement in depth below & around platforms
             float angle = Random.Range(0f, Mathf.PI * 2f);
             float dist = Random.Range(15f, cloudSpawnRadius);
             float x = Mathf.Cos(angle) * dist;
             float z = Mathf.Sin(angle) * dist;
-            float y = Random.Range(-12f, -3f); // Floating gently below/beside platforms
+            float y = Random.Range(-12f, -3f);
 
             cloudObj.transform.position = new Vector3(x, y, z);
             float scale = Random.Range(1.8f, 4.2f);
@@ -175,14 +172,12 @@ public class CuteEnvironmentManager : MonoBehaviour
         GameObject cloud = new GameObject("Fluffy_Cloud");
         cloud.transform.SetParent(parent, false);
 
-        // Build a cute multi-sphere fluffy marshmallow cluster (3-4 intersecting spheres)
         int puffCount = Random.Range(3, 5);
         for (int p = 0; p < puffCount; p++)
         {
             GameObject puff = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             puff.transform.SetParent(cloud.transform, false);
 
-            // Remove physics collider (pure visual backdrop)
             Collider col = puff.GetComponent<Collider>();
             if (col != null) Destroy(col);
 
@@ -213,7 +208,7 @@ public class CuteEnvironmentManager : MonoBehaviour
         main.startLifetime = 4f;
         main.startSize = 0.18f;
         main.startSpeed = 0.4f;
-        main.startColor = new Color(1f, 0.98f, 0.8f, 0.65f); // Golden sun motes
+        main.startColor = new Color(1f, 0.98f, 0.8f, 0.65f);
         main.simulationSpace = ParticleSystemSimulationSpace.World;
 
         var emission = ambientSparklesPS.emission;
@@ -243,7 +238,6 @@ public class CuteEnvironmentManager : MonoBehaviour
 
     private void Update()
     {
-        // Gently drift clouds horizontally across the horizon
         for (int i = 0; i < activeClouds.Count; i++)
         {
             if (activeClouds[i] != null)
@@ -253,7 +247,6 @@ public class CuteEnvironmentManager : MonoBehaviour
 
                 c.position += new Vector3(speed * Time.deltaTime, 0f, 0f);
 
-                // Wrap around when drifting too far
                 if (c.position.x > cloudSpawnRadius + 10f)
                 {
                     c.position = new Vector3(-cloudSpawnRadius - 10f, c.position.y, c.position.z);

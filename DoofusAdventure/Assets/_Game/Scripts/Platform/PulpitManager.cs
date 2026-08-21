@@ -194,7 +194,7 @@ public class PulpitManager : MonoBehaviour
     private void RefreshActivePulpitsList()
     {
         activePulpits.Clear();
-        Pulpit[] all = FindObjectsByType<Pulpit>(FindObjectsSortMode.None);
+        Pulpit[] all = FindObjectsByType<Pulpit>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
         foreach (Pulpit p in all)
         {
             if (p != null && !p.IsDestroyed)

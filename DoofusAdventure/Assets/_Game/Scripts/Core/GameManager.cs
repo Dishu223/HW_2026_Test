@@ -76,7 +76,6 @@ public class GameManager : MonoBehaviour
 
     private void Start()
     {
-        // Boot directly in StartScreen state
         SetState(GameState.StartScreen);
     }
 
@@ -86,8 +85,20 @@ public class GameManager : MonoBehaviour
         Debug.Log($"[GameManager] State changed to: {newState}");
     }
 
+    public void StartGame()
+    {
+        SetState(GameState.Playing);
+        GameEvents.TriggerGameStart();
+    }
+
+    public void RestartGame()
+    {
+        SetState(GameState.Playing);
+        GameEvents.TriggerGameRestart();
+    }
+
     private void HandleGameStart() => SetState(GameState.Playing);
-    private void HandleGameOver(int finalScore) => SetState(GameState.GameOver);
+    private void HandleGameOver() => SetState(GameState.GameOver);
     private void HandleGameRestart() => SetState(GameState.Playing);
     private void HandleReturnToLobby() => SetState(GameState.Lobby);
     private void HandleDoofusFell() => Debug.Log("[GameManager] Doofus fell into the abyss!");
