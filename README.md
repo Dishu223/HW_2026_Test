@@ -220,4 +220,4 @@ Core balance parameters are loaded dynamically from `StreamingAssets/game_data.j
 
 ---
 
-*Crafted with ❄️, ☕, and memories of the Sands of Time.*
+*Crafted with my love for gaming and game development!.*
