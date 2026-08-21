@@ -4,31 +4,44 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 /// <summary>
-/// Cute Environment & Lighting Manager:
-/// - Transforms the plain void into a vibrant, dreamy pastel wonderland!
-/// - Spawns procedural floating fluffy cartoon clouds drifting gently in the depth abyss
-/// - Spawns subtle ambient floating sun sparkles
-/// - Configures warm Pixar-style sunlight and URP Bloom + Color Vibrancy post-processing
+/// Cute Environment, Infinite Cloud Field & Lighting Manager:
+/// - Infinite Camera-Centered Cloud Field: Recycles clouds ahead as the player travels forward
+/// - Authentic Multi-Puff Cartoon Cloud Geometry (flat underside, rounded dome puffs)
+/// - 3 Parallax Cloud Layers (Distant Horizon, Mid-Level Marshmallows, Foreground Cloudlets)
+/// - Gentle floating vertical sinusoidal bobbing
+/// - Pixar-style URP Color Vibrancy, Bloom, and Ambient Sunny Sparkles
 /// </summary>
 public class CuteEnvironmentManager : MonoBehaviour
 {
     public static CuteEnvironmentManager Instance { get; private set; }
 
     [Header("Dreamy Sky Colors")]
-    [SerializeField] private Color skyTopColor = new Color(0.38f, 0.78f, 0.98f);     // Sunny Sky Cyan
-    [SerializeField] private Color skyHorizonColor = new Color(0.72f, 0.88f, 1f);    // Soft Pastel Ice
-    [SerializeField] private Color skyGroundColor = new Color(0.95f, 0.75f, 0.85f);  // Sweet Candy Lilac
+    [SerializeField] private Color skyTopColor = new Color(0.35f, 0.76f, 0.98f);     // Sunny Cyan
+    [SerializeField] private Color skyHorizonColor = new Color(0.70f, 0.88f, 1f);    // Soft Ice Blue
+    [SerializeField] private Color skyGroundColor = new Color(0.95f, 0.78f, 0.88f);  // Pastel Lilac
 
-    [Header("Drifting Fluffy Clouds")]
-    [SerializeField] private int cloudCount = 18;
-    [SerializeField] private float cloudSpeed = 1.2f;
-    [SerializeField] private float cloudSpawnRadius = 35f;
+    [Header("Infinite Cloud Configuration")]
+    [SerializeField] private int totalClouds = 28;
+    [SerializeField] private float cloudForwardRadius = 55f;
+    [SerializeField] private float cloudBehindThreshold = 25f;
+    [SerializeField] private float cloudLateralRadius = 45f;
+    [SerializeField] private float baseDriftSpeed = 1.1f;
 
-    private List<Transform> activeClouds = new List<Transform>();
-    private List<float> cloudSpeeds = new List<float>();
+    private struct CloudData
+    {
+        public Transform transform;
+        public float driftSpeed;
+        public float bobSpeed;
+        public float bobAmplitude;
+        public float bobPhase;
+        public float baseY;
+        public int layer; // 0 = Distant, 1 = Mid, 2 = Close
+    }
 
+    private List<CloudData> cloudPool = new List<CloudData>();
     private Material cloudMaterial;
     private ParticleSystem ambientSparklesPS;
+    private Transform playerOrCam;
 
     private void Awake()
     {
@@ -42,8 +55,15 @@ public class CuteEnvironmentManager : MonoBehaviour
         ApplyCuteCameraBackground();
         SetupCutePostProcessing();
         CreateCloudMaterial();
-        SpawnDriftingCartoonClouds();
+        BuildInfiniteCloudPool();
         BuildAmbientSunSparkles();
+    }
+
+    private void Start()
+    {
+        // Cache camera or player reference
+        Camera cam = Camera.main;
+        if (cam != null) playerOrCam = cam.transform;
     }
 
     private void ApplyCuteCameraBackground()
@@ -52,18 +72,18 @@ public class CuteEnvironmentManager : MonoBehaviour
         if (mainCam != null)
         {
             mainCam.clearFlags = CameraClearFlags.SolidColor;
-            mainCam.backgroundColor = new Color(0.42f, 0.76f, 0.94f); // Dreamy Sunny Cyan
+            mainCam.backgroundColor = new Color(0.38f, 0.74f, 0.95f);
 
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = skyTopColor * 1.1f;
-            RenderSettings.ambientEquatorColor = skyHorizonColor * 0.9f;
-            RenderSettings.ambientGroundColor = skyGroundColor * 0.8f;
+            RenderSettings.ambientSkyColor = skyTopColor * 1.15f;
+            RenderSettings.ambientEquatorColor = skyHorizonColor * 0.95f;
+            RenderSettings.ambientGroundColor = skyGroundColor * 0.85f;
         }
 
         Light sun = FindAnyObjectByType<Light>();
         if (sun != null && sun.type == LightType.Directional)
         {
-            sun.color = new Color(1f, 0.97f, 0.90f); // Warm golden sunlight
+            sun.color = new Color(1f, 0.97f, 0.90f);
             sun.intensity = 1.35f;
             sun.shadows = LightShadows.Soft;
             sun.transform.rotation = Quaternion.Euler(52f, -38f, 0f);
@@ -88,19 +108,17 @@ public class CuteEnvironmentManager : MonoBehaviour
             volume.profile = profile;
         }
 
-        // 1. Dreamy Bloom
         if (!profile.TryGet(out Bloom bloom)) bloom = profile.Add<Bloom>(true);
         if (bloom != null)
         {
             bloom.threshold.overrideState = true;
             bloom.threshold.value = 0.92f;
             bloom.intensity.overrideState = true;
-            bloom.intensity.value = 0.65f;
+            bloom.intensity.value = 0.60f;
             bloom.scatter.overrideState = true;
             bloom.scatter.value = 0.70f;
         }
 
-        // 2. Color Adjustments (Pixar/Mario Vibrancy)
         if (!profile.TryGet(out ColorAdjustments colorAdj)) colorAdj = profile.Add<ColorAdjustments>(true);
         if (colorAdj != null)
         {
@@ -112,7 +130,6 @@ public class CuteEnvironmentManager : MonoBehaviour
             colorAdj.saturation.value = 22f;
         }
 
-        // 3. Tonemapping (ACES)
         if (!profile.TryGet(out Tonemapping tonemapping)) tonemapping = profile.Add<Tonemapping>(true);
         if (tonemapping != null)
         {
@@ -120,80 +137,133 @@ public class CuteEnvironmentManager : MonoBehaviour
             tonemapping.mode.value = TonemappingMode.ACES;
         }
 
-        // 4. Soft Dreamy Vignette
         if (!profile.TryGet(out Vignette vignette)) vignette = profile.Add<Vignette>(true);
         if (vignette != null)
         {
             vignette.intensity.overrideState = true;
-            vignette.intensity.value = 0.22f;
+            vignette.intensity.value = 0.20f;
             vignette.smoothness.overrideState = true;
             vignette.smoothness.value = 0.40f;
             vignette.color.overrideState = true;
-            vignette.color.value = new Color(0.1f, 0.2f, 0.35f);
+            vignette.color.value = new Color(0.08f, 0.18f, 0.32f);
         }
     }
 
     private void CreateCloudMaterial()
     {
-        Shader unlitShader = Shader.Find("Universal Render Pipeline/Lit");
-        if (unlitShader == null) unlitShader = Shader.Find("Universal Render Pipeline/Simple Lit");
-        if (unlitShader == null) unlitShader = Shader.Find("Standard");
+        Shader litShader = Shader.Find("Universal Render Pipeline/Lit");
+        if (litShader == null) litShader = Shader.Find("Universal Render Pipeline/Simple Lit");
+        if (litShader == null) litShader = Shader.Find("Standard");
 
-        cloudMaterial = new Material(unlitShader);
-        cloudMaterial.color = new Color(0.98f, 0.98f, 1f, 0.95f);
+        cloudMaterial = new Material(litShader);
+        cloudMaterial.color = new Color(1f, 0.99f, 0.98f);
+        cloudMaterial.enableInstancing = true;
     }
 
-    private void SpawnDriftingCartoonClouds()
+    private void BuildInfiniteCloudPool()
     {
-        GameObject cloudRoot = new GameObject("--- Dreamy_Clouds_Backdrop ---");
-        cloudRoot.transform.SetParent(transform);
+        GameObject root = new GameObject("--- Infinite_Cartoon_Clouds ---");
+        root.transform.SetParent(transform);
 
-        for (int i = 0; i < cloudCount; i++)
+        Vector3 centerPos = Vector3.zero;
+        if (playerOrCam != null) centerPos = playerOrCam.position;
+
+        for (int i = 0; i < totalClouds; i++)
         {
-            GameObject cloudObj = CreateSingleFluffyCloud(cloudRoot.transform);
+            int layer = i % 3; // 0 = Deep Horizon, 1 = Mid, 2 = Foreground
+            GameObject cloudObj = BuildCutePuffyCloud(root.transform, layer);
 
-            float angle = Random.Range(0f, Mathf.PI * 2f);
-            float dist = Random.Range(15f, cloudSpawnRadius);
-            float x = Mathf.Cos(angle) * dist;
-            float z = Mathf.Sin(angle) * dist;
-            float y = Random.Range(-12f, -3f);
+            // Random initial placement in a large cylinder around origin/camera
+            float x = Random.Range(-cloudLateralRadius, cloudLateralRadius);
+            float z = Random.Range(-cloudBehindThreshold, cloudForwardRadius);
+            float y = GetLayerBaseY(layer);
 
-            cloudObj.transform.position = new Vector3(x, y, z);
-            float scale = Random.Range(1.8f, 4.2f);
-            cloudObj.transform.localScale = new Vector3(scale * 1.5f, scale * 0.8f, scale * 1.2f);
+            cloudObj.transform.position = new Vector3(centerPos.x + x, y, centerPos.z + z);
 
-            activeClouds.Add(cloudObj.transform);
-            cloudSpeeds.Add(Random.Range(0.6f, 1.8f) * cloudSpeed);
+            CloudData data = new CloudData
+            {
+                transform = cloudObj.transform,
+                driftSpeed = GetLayerDriftSpeed(layer),
+                bobSpeed = Random.Range(0.8f, 1.6f),
+                bobAmplitude = Random.Range(0.2f, 0.6f),
+                bobPhase = Random.Range(0f, Mathf.PI * 2f),
+                baseY = y,
+                layer = layer
+            };
+
+            cloudPool.Add(data);
         }
     }
 
-    private GameObject CreateSingleFluffyCloud(Transform parent)
+    private float GetLayerBaseY(int layer)
     {
-        GameObject cloud = new GameObject("Fluffy_Cloud");
+        switch (layer)
+        {
+            case 0: return Random.Range(-14f, -22f); // Deep Horizon
+            case 1: return Random.Range(-7f, -13f);  // Mid-Level
+            default: return Random.Range(-3f, -6f);  // Foreground
+        }
+    }
+
+    private float GetLayerDriftSpeed(int layer)
+    {
+        switch (layer)
+        {
+            case 0: return baseDriftSpeed * Random.Range(0.35f, 0.65f); // Slow distant parallax
+            case 1: return baseDriftSpeed * Random.Range(0.8f, 1.2f);
+            default: return baseDriftSpeed * Random.Range(1.3f, 1.8f);  // Faster foreground breeze
+        }
+    }
+
+    private GameObject BuildCutePuffyCloud(Transform parent, int layer)
+    {
+        GameObject cloud = new GameObject($"Cartoon_Cloud_L{layer}");
         cloud.transform.SetParent(parent, false);
 
-        int puffCount = Random.Range(3, 5);
-        for (int p = 0; p < puffCount; p++)
-        {
-            GameObject puff = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            puff.transform.SetParent(cloud.transform, false);
+        // Cute low-poly fluffy cloud composition:
+        // 1 large center dome + 2 medium side domes + 2 small outer puffs + flat bottom
+        int puffCount = Random.Range(5, 8);
 
-            Collider col = puff.GetComponent<Collider>();
-            if (col != null) Destroy(col);
+        // Center main dome
+        CreatePuffSphere(cloud.transform, Vector3.up * 0.2f, new Vector3(1.4f, 1.1f, 1.3f));
 
-            MeshRenderer mr = puff.GetComponent<MeshRenderer>();
-            if (mr != null && cloudMaterial != null) mr.sharedMaterial = cloudMaterial;
+        // Side domes
+        CreatePuffSphere(cloud.transform, new Vector3(-0.95f, -0.05f, 0.1f), new Vector3(1.1f, 0.9f, 1.0f));
+        CreatePuffSphere(cloud.transform, new Vector3(0.95f, -0.05f, -0.1f), new Vector3(1.15f, 0.95f, 1.05f));
 
-            float xOffset = (p - (puffCount * 0.5f)) * 0.75f + Random.Range(-0.2f, 0.2f);
-            float yOffset = Random.Range(-0.15f, 0.3f);
-            float zOffset = Random.Range(-0.3f, 0.3f);
-            puff.transform.localPosition = new Vector3(xOffset, yOffset, zOffset);
+        // Outer small puffs
+        CreatePuffSphere(cloud.transform, new Vector3(-1.65f, -0.25f, -0.05f), new Vector3(0.75f, 0.65f, 0.75f));
+        CreatePuffSphere(cloud.transform, new Vector3(1.65f, -0.22f, 0.08f), new Vector3(0.80f, 0.70f, 0.80f));
 
-            float s = Random.Range(0.8f, 1.3f);
-            puff.transform.localScale = Vector3.one * s;
-        }
+        // Back puff for 3D depth
+        CreatePuffSphere(cloud.transform, new Vector3(0.2f, 0.05f, 0.65f), new Vector3(0.9f, 0.8f, 0.9f));
 
+        // Scale by layer
+        float overallScale = 1f;
+        if (layer == 0) overallScale = Random.Range(3.5f, 6.0f);     // Massive distant clouds
+        else if (layer == 1) overallScale = Random.Range(2.2f, 3.8f); // Mid marshmallow clouds
+        else overallScale = Random.Range(1.2f, 2.0f);                // Small cute cloudlets
+
+        cloud.transform.localScale = Vector3.one * overallScale;
         return cloud;
+    }
+
+    private void CreatePuffSphere(Transform parent, Vector3 localPos, Vector3 localScale)
+    {
+        GameObject puff = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        puff.transform.SetParent(parent, false);
+        puff.transform.localPosition = localPos;
+        puff.transform.localScale = localScale;
+
+        Collider c = puff.GetComponent<Collider>();
+        if (c != null) Destroy(c);
+
+        MeshRenderer mr = puff.GetComponent<MeshRenderer>();
+        if (mr != null && cloudMaterial != null)
+        {
+            mr.sharedMaterial = cloudMaterial;
+            mr.shadowCastingMode = ShadowCastingMode.Off; // Pure soft ambient visual
+        }
     }
 
     private void BuildAmbientSunSparkles()
@@ -204,19 +274,19 @@ public class CuteEnvironmentManager : MonoBehaviour
 
         ambientSparklesPS = psObj.AddComponent<ParticleSystem>();
         var main = ambientSparklesPS.main;
-        main.maxParticles = 60;
+        main.maxParticles = 50;
         main.startLifetime = 4f;
-        main.startSize = 0.18f;
-        main.startSpeed = 0.4f;
-        main.startColor = new Color(1f, 0.98f, 0.8f, 0.65f);
+        main.startSize = 0.15f;
+        main.startSpeed = 0.35f;
+        main.startColor = new Color(1f, 0.98f, 0.85f, 0.60f);
         main.simulationSpace = ParticleSystemSimulationSpace.World;
 
         var emission = ambientSparklesPS.emission;
-        emission.rateOverTime = 12;
+        emission.rateOverTime = 10;
 
         var shape = ambientSparklesPS.shape;
         shape.shapeType = ParticleSystemShapeType.Box;
-        shape.scale = new Vector3(25f, 10f, 25f);
+        shape.scale = new Vector3(30f, 10f, 30f);
 
         var sizeOverLifetime = ambientSparklesPS.sizeOverLifetime;
         sizeOverLifetime.enabled = true;
@@ -238,20 +308,59 @@ public class CuteEnvironmentManager : MonoBehaviour
 
     private void Update()
     {
-        for (int i = 0; i < activeClouds.Count; i++)
+        if (playerOrCam == null)
         {
-            if (activeClouds[i] != null)
+            Camera cam = Camera.main;
+            if (cam != null) playerOrCam = cam.transform;
+        }
+
+        Vector3 centerPos = (playerOrCam != null) ? playerOrCam.position : Vector3.zero;
+
+        // Update ambient sun sparkles to follow the player area
+        if (ambientSparklesPS != null)
+        {
+            ambientSparklesPS.transform.position = new Vector3(centerPos.x, centerPos.y + 1.5f, centerPos.z);
+        }
+
+        // Update each cloud: Drift horizontally + Bob vertically + Infinite wrap around player/camera!
+        for (int i = 0; i < cloudPool.Count; i++)
+        {
+            CloudData c = cloudPool[i];
+            if (c.transform == null) continue;
+
+            Vector3 pos = c.transform.position;
+
+            // 1. Horizontal drift (wind breeze along +X)
+            pos.x += c.driftSpeed * Time.deltaTime;
+
+            // 2. Gentle sinusoidal vertical floating bob
+            float bobOffset = Mathf.Sin(Time.time * c.bobSpeed + c.bobPhase) * c.bobAmplitude;
+            pos.y = c.baseY + bobOffset;
+
+            // 3. INFINITE HORIZON RECYCLING (Relative to Camera / Player Center)
+            // If the player moved forward in +Z, recycle clouds that fell behind to the front!
+            if (pos.z < centerPos.z - cloudBehindThreshold)
             {
-                Transform c = activeClouds[i];
-                float speed = (i < cloudSpeeds.Count) ? cloudSpeeds[i] : 1f;
-
-                c.position += new Vector3(speed * Time.deltaTime, 0f, 0f);
-
-                if (c.position.x > cloudSpawnRadius + 10f)
-                {
-                    c.position = new Vector3(-cloudSpawnRadius - 10f, c.position.y, c.position.z);
-                }
+                pos.z = centerPos.z + cloudForwardRadius + Random.Range(-5f, 15f);
+                pos.x = centerPos.x + Random.Range(-cloudLateralRadius, cloudLateralRadius);
             }
+            else if (pos.z > centerPos.z + cloudForwardRadius + 20f)
+            {
+                pos.z = centerPos.z - cloudBehindThreshold + Random.Range(-5f, 5f);
+                pos.x = centerPos.x + Random.Range(-cloudLateralRadius, cloudLateralRadius);
+            }
+
+            // Lateral wind wrap around along X
+            if (pos.x > centerPos.x + cloudLateralRadius + 15f)
+            {
+                pos.x = centerPos.x - cloudLateralRadius - 15f;
+            }
+            else if (pos.x < centerPos.x - cloudLateralRadius - 15f)
+            {
+                pos.x = centerPos.x + cloudLateralRadius + 15f;
+            }
+
+            c.transform.position = pos;
         }
     }
 }
