@@ -1,8 +1,9 @@
-﻿using UnityEngine;
+﻿using System.Collections;
+using UnityEngine;
 
 /// <summary>
 /// Fully Configurable Particle VFX & Game Juice Manager:
-/// - Custom Confetti / Milestone Prefab slot (supports any multi-system or sub-emitter prefab)
+/// - Custom Confetti / Milestone Prefab slot with full useUnscaledTime support (animates smoothly even while game is paused!)
 /// - Platform Spawn Edge Dust: Shoots strictly OUTWARD horizontally from downside perimeter edges
 /// - Inspector-exposed tuning parameters (colors, sizes, speeds, particle counts)
 /// </summary>
@@ -122,6 +123,11 @@ public class VFXManager : MonoBehaviour
             : CreateCircleParticleSystem("Chrono_Sparkle_PS", chronoParticleCount, chronoColor, chronoParticleLifetime, chronoParticleSize, 1.2f);
 
         milestoneConfettiPS = CreateCircleParticleSystem("Milestone_Confetti_PS", confettiParticleCount, confettiColor, confettiParticleLifetime, confettiParticleSize, 3.5f);
+        if (milestoneConfettiPS != null)
+        {
+            var main = milestoneConfettiPS.main;
+            main.useUnscaledTime = true;
+        }
     }
 
     private ParticleSystem CreateEdgeDustParticleSystem(string name, int maxParticles, Color color, float lifetime, float size, float speed)
@@ -306,14 +312,27 @@ public class VFXManager : MonoBehaviour
         {
             GameObject confettiObj = Instantiate(customMilestoneConfettiPrefab, position + Vector3.up * 1.5f, Quaternion.identity);
             ParticleSystem[] systems = confettiObj.GetComponentsInChildren<ParticleSystem>();
-            foreach (var ps in systems) ps.Play();
-            Destroy(confettiObj, 6f);
+            foreach (var ps in systems)
+            {
+                var main = ps.main;
+                main.useUnscaledTime = true; // Plays smoothly while Time.timeScale = 0!
+                ps.Play();
+            }
+            StartCoroutine(DestroyRealtimeCoroutine(confettiObj, 8f));
         }
         else if (milestoneConfettiPS != null)
         {
+            var main = milestoneConfettiPS.main;
+            main.useUnscaledTime = true;
             milestoneConfettiPS.transform.position = position + new Vector3(0f, 2f, 0f);
             milestoneConfettiPS.Emit(confettiParticleCount);
         }
+    }
+
+    private IEnumerator DestroyRealtimeCoroutine(GameObject obj, float realtimeSeconds)
+    {
+        yield return new WaitForSecondsRealtime(realtimeSeconds);
+        if (obj != null) Destroy(obj);
     }
     #endregion
 
