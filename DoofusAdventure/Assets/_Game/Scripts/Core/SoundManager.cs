@@ -3,6 +3,8 @@
 /// <summary>
 /// Comprehensive Audio & Music Engine for Doofus Adventure:
 /// - Left & Right footstep audio slots (for alternating Boop sounds!)
+/// - Dash Sound effect slot (plays on Shift Dash)
+/// - Platform Spawn sound slot (plays on each pulpit spawn)
 /// - Start Screen / Lobby Background Music
 /// - In-Game Gameplay Background Music (stops on gameover, slow-mo warped during rewind)
 /// - Victory Fanfare for 50-pulpit completion
@@ -24,6 +26,12 @@ public class SoundManager : MonoBehaviour
     [SerializeField] private AudioClip customFootstepRightClip;
 
     [Header("Gameplay SFX")]
+    [Tooltip("Plays when Doofus performs a Shift Dash")]
+    [SerializeField] private AudioClip customDashClip;
+
+    [Tooltip("Plays when a new pulpit platform appears")]
+    [SerializeField] private AudioClip customPlatformSpawnClip;
+
     [SerializeField] private AudioClip customLandingClip;
     [SerializeField] private AudioClip customShatterClip;
     [SerializeField] private AudioClip customRewindClip;
@@ -44,6 +52,8 @@ public class SoundManager : MonoBehaviour
     // Procedural Fallbacks
     private AudioClip procFootstepLeftClip;
     private AudioClip procFootstepRightClip;
+    private AudioClip procDashClip;
+    private AudioClip procPlatformSpawnClip;
     private AudioClip procLandingClip;
     private AudioClip procShatterClip;
     private AudioClip procRewindClip;
@@ -67,7 +77,6 @@ public class SoundManager : MonoBehaviour
 
     private void Start()
     {
-        // Play start screen music on boot
         PlayStartScreenBGM();
     }
 
@@ -95,6 +104,7 @@ public class SoundManager : MonoBehaviour
         GameEvents.OnReturnToLobby += HandleReturnToLobby;
         GameEvents.OnGameOver += HandleGameOver;
 
+        GameEvents.OnPulpitSpawned += HandlePulpitSpawned;
         GameEvents.OnPulpitLanded += HandlePulpitLanded;
         GameEvents.OnPulpitDestroyed += HandlePulpitDestroyed;
         GameEvents.OnRewindStart += HandleRewindStart;
@@ -110,6 +120,7 @@ public class SoundManager : MonoBehaviour
         GameEvents.OnReturnToLobby -= HandleReturnToLobby;
         GameEvents.OnGameOver -= HandleGameOver;
 
+        GameEvents.OnPulpitSpawned -= HandlePulpitSpawned;
         GameEvents.OnPulpitLanded -= HandlePulpitLanded;
         GameEvents.OnPulpitDestroyed -= HandlePulpitDestroyed;
         GameEvents.OnRewindStart -= HandleRewindStart;
@@ -172,6 +183,28 @@ public class SoundManager : MonoBehaviour
         {
             sfxSource.pitch = Random.Range(0.95f, 1.05f);
             sfxSource.PlayOneShot(clip, 0.45f * masterVolume * sfxVolume);
+        }
+    }
+    #endregion
+
+    #region Dash & Spawn SFX
+    public void PlayDashSound()
+    {
+        AudioClip clip = customDashClip != null ? customDashClip : procDashClip;
+        if (clip != null && sfxSource != null)
+        {
+            sfxSource.pitch = Random.Range(0.95f, 1.10f);
+            sfxSource.PlayOneShot(clip, 0.85f * masterVolume * sfxVolume);
+        }
+    }
+
+    public void PlayPlatformSpawnSound()
+    {
+        AudioClip clip = customPlatformSpawnClip != null ? customPlatformSpawnClip : procPlatformSpawnClip;
+        if (clip != null && sfxSource != null)
+        {
+            sfxSource.pitch = Random.Range(0.95f, 1.05f);
+            sfxSource.PlayOneShot(clip, 0.70f * masterVolume * sfxVolume);
         }
     }
     #endregion
@@ -275,13 +308,14 @@ public class SoundManager : MonoBehaviour
         PlayGameOverTone();
     }
 
+    private void HandlePulpitSpawned(Vector3 pos) => PlayPlatformSpawnSound();
     private void HandlePulpitLanded() => PlayLandingChime();
     private void HandlePulpitDestroyed(Vector3 pos) => PlayShatterCrunch();
 
     private void HandleRewindStart()
     {
         PlayRewindWhoosh();
-        if (bgmSource != null) bgmSource.pitch = 0.5f; // Slow-mo tape pitch
+        if (bgmSource != null) bgmSource.pitch = 0.5f;
     }
 
     private void HandleRewindReadyToResume()
@@ -293,7 +327,7 @@ public class SoundManager : MonoBehaviour
     private void HandleRewindComplete()
     {
         StopRewindWhoosh();
-        if (bgmSource != null) bgmSource.pitch = 1.0f; // Restore normal pitch
+        if (bgmSource != null) bgmSource.pitch = 1.0f;
     }
 
     private void HandleMilestoneReached(int score)
@@ -319,10 +353,25 @@ public class SoundManager : MonoBehaviour
             return Mathf.Sin(2f * Mathf.PI * freq * t) * env;
         });
 
-        // Boop 2 (Right Foot: 310Hz -> 180Hz - slightly higher pitch boop!)
+        // Boop 2 (Right Foot: 310Hz -> 180Hz)
         procFootstepRightClip = CreateSynthClip("Footstep_Right_Proc", 0.07f, (t) => {
             float env = Mathf.Exp(-t * 50f);
             float freq = Mathf.Lerp(310f, 180f, t / 0.07f);
+            return Mathf.Sin(2f * Mathf.PI * freq * t) * env;
+        });
+
+        // Dash Whoosh (Rapid wind rush)
+        procDashClip = CreateSynthClip("Dash_Proc", 0.18f, (t) => {
+            float env = Mathf.Sin(Mathf.PI * (t / 0.18f));
+            float noise = Random.Range(-1f, 1f) * 0.7f;
+            float sweep = Mathf.Sin(2f * Mathf.PI * Mathf.Lerp(300f, 850f, t / 0.18f) * t) * 0.3f;
+            return (noise + sweep) * env;
+        });
+
+        // Platform Spawn Pop/Thud
+        procPlatformSpawnClip = CreateSynthClip("Spawn_Proc", 0.14f, (t) => {
+            float env = Mathf.Exp(-t * 30f);
+            float freq = Mathf.Lerp(480f, 160f, t / 0.14f);
             return Mathf.Sin(2f * Mathf.PI * freq * t) * env;
         });
 
@@ -359,13 +408,12 @@ public class SoundManager : MonoBehaviour
             return Mathf.Sin(2f * Mathf.PI * freq * t) * env;
         });
 
-        // 50-Pulpit Victory Grand Chord
         procVictoryClip = CreateSynthClip("Victory_Proc", 1.2f, (t) => {
             float env = Mathf.Exp(-t * 2f);
-            float n1 = Mathf.Sin(2f * Mathf.PI * 523.25f * t); // C5
-            float n2 = Mathf.Sin(2f * Mathf.PI * 659.25f * t); // E5
-            float n3 = Mathf.Sin(2f * Mathf.PI * 783.99f * t); // G5
-            float n4 = Mathf.Sin(2f * Mathf.PI * 1046.50f * t); // C6
+            float n1 = Mathf.Sin(2f * Mathf.PI * 523.25f * t);
+            float n2 = Mathf.Sin(2f * Mathf.PI * 659.25f * t);
+            float n3 = Mathf.Sin(2f * Mathf.PI * 783.99f * t);
+            float n4 = Mathf.Sin(2f * Mathf.PI * 1046.50f * t);
             return (n1 * 0.3f + n2 * 0.25f + n3 * 0.25f + n4 * 0.2f) * env;
         });
 

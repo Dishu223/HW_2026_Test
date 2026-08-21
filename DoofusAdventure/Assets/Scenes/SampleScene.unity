@@ -2479,6 +2479,79 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1944083386}
   m_CullTransparentMesh: 1
+--- !u!1 &2060146460
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2060146462}
+  - component: {fileID: 2060146461}
+  m_Layer: 0
+  m_Name: VFXManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2060146461
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2060146460}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b9d5f3a179857fb4b84db1c49b007b81, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VFXManager
+  customSpawnPuffPrefab: {fileID: 0}
+  customLandingRingPrefab: {fileID: 0}
+  customCrumbleDustPrefab: {fileID: 0}
+  customChronoSparklePrefab: {fileID: 0}
+  customMilestoneConfettiPrefab: {fileID: 0}
+  spawnEdgeColor: {r: 0.77731204, g: 1, b: 0.75, a: 0.85}
+  spawnEdgeParticleSize: 0.25
+  spawnEdgeParticleLifetime: 0.6
+  spawnEdgeParticleSpeed: 1
+  spawnEdgeParticleCount: 40
+  platformDimension: 5
+  landingColor: {r: 1, g: 1, b: 1, a: 0.75}
+  landingParticleSize: 0.35
+  landingParticleLifetime: 0.3
+  landingParticleSpeed: 2
+  landingParticleCount: 16
+  crumbleColor: {r: 0.85, g: 0.45, b: 0.35, a: 0.75}
+  crumbleParticleSize: 0.5
+  crumbleParticleLifetime: 0.55
+  crumbleParticleSpeed: 3
+  crumbleParticleCount: 16
+  chronoColor: {r: 0, g: 0.9, b: 1, a: 0.95}
+  chronoParticleSize: 0.25
+  chronoParticleLifetime: 0.5
+  chronoParticleCount: 18
+  confettiColor: {r: 1, g: 0.85, b: 0.15, a: 1}
+  confettiParticleSize: 0.35
+  confettiParticleLifetime: 0.9
+  confettiParticleCount: 60
+--- !u!4 &2060146462
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2060146460}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.03847, y: 3.25898, z: -0.49852}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2084719534
 GameObject:
   m_ObjectHideFlags: 0
@@ -2827,3 +2900,4 @@ SceneRoots:
   - {fileID: 2304661545009157982}
   - {fileID: 1317987139}
   - {fileID: 1212819721}
+  - {fileID: 2060146462}

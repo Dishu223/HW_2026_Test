@@ -103,7 +103,6 @@ public class DoofusController : MonoBehaviour
 
         moveInput = ReadKeyboardInput();
 
-        // Check Shift Dash key trigger
         bool shiftPressed = Keyboard.current != null && (Keyboard.current.leftShiftKey.wasPressedThisFrame || Keyboard.current.rightShiftKey.wasPressedThisFrame);
         if (shiftPressed && dashCooldownTimer <= 0f && !isDashing)
         {
@@ -129,11 +128,16 @@ public class DoofusController : MonoBehaviour
         dashTimer = 0f;
         dashCooldownTimer = dashCooldown;
 
-        // Dash in current move direction, or forward if standing still
         if (moveInput.sqrMagnitude > 0.05f)
             dashDirection = moveInput.normalized;
         else
             dashDirection = transform.forward;
+
+        // Play Dash Sound Effect!
+        if (SoundManager.Instance != null)
+        {
+            SoundManager.Instance.PlayDashSound();
+        }
     }
 
     private void FixedUpdate()
@@ -144,7 +148,6 @@ public class DoofusController : MonoBehaviour
 
         if (isDashing)
         {
-            // Smooth dash speed curve: punchy burst that glides out
             float t = dashTimer / dashDuration;
             float speedCurve = Mathf.Lerp(dashSpeedMultiplier, 1.2f, t * t);
             Vector3 targetPosition = rb.position + dashDirection * (baseSpeed * speedCurve) * Time.fixedDeltaTime;
